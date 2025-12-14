@@ -18,13 +18,13 @@ function divide(op1, op2) {
 function operate(operator, op1, op2) {
     switch (operator) {
         case "add":
-            return this.add(op1, op2);
+            return add(op1, op2);
         case "subtract":
-            return this.subtract(op1, op2);
+            return subtract(op1, op2);
         case "multiply":
-            return this.multiply(op1, op2);
+            return multiply(op1, op2);
         case "divide":
-            return this.divide(op1, op2);
+            return divide(op1, op2);
         default:
             return "error";
     }
@@ -79,8 +79,10 @@ function updateTokens(update) {
         // digit being entered
         if (calculator.operator === null) {
             // operator absent, 1st operand being entered
-            if (calculator.op1 === null) {
+            if (calculator.op1 === null || !(calculator.lastOperation === null)) {
                 // 1st operand hasn't receveived any digits yet
+                // OR, 1st operand is result of prior calculation
+                // and we don't want to edit it
                 if (calculator.op1Type === "dot") {
                     // operand 1 just had a decimal point entered
                     calculator.op1 = update / 10;
@@ -93,7 +95,7 @@ function updateTokens(update) {
                 // operand 1 has already seen entries
                 if (calculator.op1Type === "dot") {
                     // currently adding first digit after decimal
-                    calculator.op1 = parseFloat(`${this.op1}.${update}`);
+                    calculator.op1 = parseFloat(`${calculator.op1}.${update}`);
                     calculator.op1Type = "float";
                 } else if (calculator.op1Type === "float") {
                     // adding 2nd or later digit after decimal
@@ -126,7 +128,7 @@ function updateTokens(update) {
                     calculator.op2 = parseFloat(`${calculator.op2}${update}`);
                 } else {
                     // adding another digit to the integer
-                    calculator.op2 = parseInt(`${op2}${update}`);
+                    calculator.op2 = parseInt(`${calculator.op2}${update}`);
                 }
             }
         }
@@ -159,13 +161,13 @@ function updateTokens(update) {
             // still entering 1st operand
             if (calculator.op1Type === "int") {
                 // haven't entered decimal yet
-                calculator.op1IsFloat = "dot";
+                calculator.op1Type = "dot";
             }
         } else {
             // entering 2nd operand
             if (calculator.op2Type === "int") {
                 // haven't entered decimal yet
-                calculator.op2IsFloat = "dot";
+                calculator.op2Type = "dot";
             }
         }
     } else if (update === "sign") {
@@ -222,7 +224,8 @@ function updateDisplay() {
     const display = document.querySelector(".display");
     // code to update the display
     let text = "";
-    if (calculator.op1) text += calculator.op1;
+    if (!(calculator.op1 === null)) text += calculator.op1;
+    if (calculator.op1Type === "dot") text += ".";
     if (calculator.operator) {
         if (calculator.operator === "add") {
             text += " +";
@@ -234,7 +237,8 @@ function updateDisplay() {
             text += " ÷";
         }
     }
-    if (calculator.op2) text += " " + calculator.op2;
+    if (!(calculator.op2 === null)) text += " " + calculator.op2;
+    if (calculator.op2Type === "dot") text += ".";
     display.textContent = text;
 }
 
