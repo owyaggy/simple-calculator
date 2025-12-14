@@ -79,10 +79,11 @@ function updateTokens(update) {
         // digit being entered
         if (calculator.operator === null) {
             // operator absent, 1st operand being entered
-            if (calculator.op1 === null || !(calculator.lastOperation === null)) {
+            if (calculator.op1 === null || (calculator.lastOperation !== null && (!calculator.lastOperation.new))) {
                 // 1st operand hasn't receveived any digits yet
                 // OR, 1st operand is result of prior calculation
                 // and we don't want to edit it
+                if (calculator.lastOperation) calculator.lastOperation.new = true;
                 if (calculator.op1Type === "dot") {
                     // operand 1 just had a decimal point entered
                     calculator.op1 = update / 10;
@@ -195,6 +196,7 @@ function updateTokens(update) {
                 // last operation exists
                 // perform last operation again
                 calculator.op1 = operate(calculator.lastOperation.operator, calculator.op1, calculator.lastOperation.op2);
+                calculator.lastOperation.new = false;
                 // check if op1 is now integer and adjust accordingly
                 // TODO
             }
@@ -214,17 +216,25 @@ function updateTokens(update) {
 
 function buttonClick(event) {
     const target = event.target.id;
-    console.log(target);
-    const update = processClick(target);
-    updateTokens(update);
-    updateDisplay();
+    if (target) {
+        // only if target is something truthy (meaningful)
+        const update = processClick(target);
+        updateTokens(update);
+        updateDisplay();
+    }
 }
 
 function updateDisplay() {
     const display = document.querySelector(".display");
     // code to update the display
     let text = "";
-    if (!(calculator.op1 === null)) text += calculator.op1;
+    if (calculator.op1 !== null) {
+        if (calculator.lastOperation && calculator.op1Type === "float") {
+            text += calculator.op1.toFixed(2);
+        } else {
+            text += calculator.op1;
+        }
+    }
     if (calculator.op1Type === "dot") text += ".";
     if (calculator.operator) {
         if (calculator.operator === "add") {
@@ -237,7 +247,7 @@ function updateDisplay() {
             text += " ÷";
         }
     }
-    if (!(calculator.op2 === null)) text += " " + calculator.op2;
+    if (calculator.op2 !== null) text += " " + calculator.op2;
     if (calculator.op2Type === "dot") text += ".";
     display.textContent = text;
 }
