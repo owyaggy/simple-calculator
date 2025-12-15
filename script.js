@@ -176,7 +176,60 @@ function updateTokens(update) {
         // TODO
     } else if (update === "backspace") {
         // backspace selected
-        // TODO
+        if (calculator.op2 !== null) {
+            // currently entering digits for op2
+            if (calculator.op2Type === "dot") {
+                // last key entered was decimal
+                calculator.op2Type = "int";
+            } else {
+                // last key entered was digit
+                if (calculator.op2Type === "int") {
+                    // op2 is int
+                    let op2Short = `${calculator.op2}`.slice(0, -1);
+                    if (op2Short === "") {
+                        calculator.op2 = null;
+                    } else {
+                        calculator.op2 = parseInt(op2Short);
+                    }
+                } else {
+                    // op2 is float
+                    let op2Short = `${calculator.op2}`.slice(0, -1);
+                    if (op2Short === "") {
+                        calculator.op2 = null;
+                    } else {
+                        calculator.op2 = parseFloat(op2Short);
+                    }
+                }
+            }
+        } else if (calculator.operator !== null) {
+            // last key entered was an operator
+            calculator.operator = null;
+        } else if (calculator.op1 !== null) {
+            // last key entered was for op1
+            if (calculator.op1Type === "dot") {
+                // last key entered was decimal
+                calculator.op1Type = "int";
+            } else {
+                // last key entered was digit
+                if (calculator.op1Type === "int") {
+                    // op1 is int
+                    let op1Short = `${calculator.op1}`.slice(0, -1);
+                    if (op1Short === "") {
+                        calculator.op1 = null;
+                    } else {
+                        calculator.op1 = parseInt(op1Short);
+                    }
+                } else {
+                    // op1 is float
+                    let op1Short = `${calculator.op1}`.slice(0, -1);
+                    if (op1Short === "") {
+                        calculator.op1 = null;
+                    } else {
+                        calculator.op1 = parseFloat(op1Short);
+                    }
+                }
+            } 
+        }
     } else if (update === "clear") {
         // clear selected
         calculator.op1 = null;
@@ -186,7 +239,7 @@ function updateTokens(update) {
         calculator.lastOperation = null;
     } else if (update === "fn") {
         // fn selected
-        // TODO
+        alert("This function is not implemented.")
     } else {
         // equals selected
         if (calculator.op2 === null) {
@@ -230,7 +283,9 @@ function updateDisplay() {
     let text = "";
     if (calculator.op1 !== null) {
         if (calculator.lastOperation && calculator.op1Type === "float") {
-            text += calculator.op1.toFixed(2);
+            if ('new' in calculator.lastOperation && calculator.lastOperation.new === false) {
+                text += calculator.op1.toFixed(2);
+            }
         } else {
             text += calculator.op1;
         }
