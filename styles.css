@@ -31,15 +31,41 @@ body {
 .row {
     display: flex;
     gap: 10px;
+    border: none;
 }
 
 button {
     border-radius: 100%;
     aspect-ratio: 1 / 1;
     flex: 1;
-    border: none;
-    font-family: Arial, Helvetica, sans-serif;
+    font-family: "Nunito", sans-serif;
     font-size: 48px;
+    border: none;
+    box-shadow: 1px 1px 0.5px #ffffff3d inset, -1px -1px 0.5px #ffffff3d inset;
+    border-width: 1px;
+    transition-timing-function: cubic-bezier(0.075, 0.82, 0.165, 1);
+    transition-duration: 0.3s;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+button:hover {
+    transform: scale(1.15);
+    transition-timing-function: cubic-bezier(0.075, 0.82, 0.165, 1);
+    transition-duration: 0.3s;
+}
+
+.button-text {
+    padding: 0;
+    margin: 0;
+    border: 0;
+}
+
+.button svg {
+    padding: 0;
+    margin: 0;
+    border: 0;
 }
 
 .toprow,
@@ -52,25 +78,39 @@ button {
 }
 
 .toprow {
-    background-color: rgb(158, 158, 158);
+    background-color: #7e7c7c;
+}
+
+.toprow:hover {
+    background-color: rgb(168, 163, 163);
 }
 
 .digit,
 .bottomrow {
-    background-color: rgb(47, 47, 47);
+    background-color: rgb(67, 65, 65);
+}
+
+.digit:hover,
+.bottomrow:hover {
+    background-color: #858181;
 }
 
 .operator {
-    background-color: rgb(223, 135, 3);
+    background-color: rgb(255, 136, 0);
+}
+
+.operator:hover {
+    background-color: #ffa048;
 }
 
 .display {
     flex: 1;
-    font-family: Arial, Helvetica, sans-serif;
+    font-family: "Nunito", sans-serif;
     font-size: 48px;
     font-weight: bold;
     display: flex;
-    justify-content: flex-start;
+    justify-content: flex-end;
     align-items: flex-end;
     min-height: 10vh;
+    text-align: right;
 }

@@ -283,7 +283,7 @@ function updateDisplay() {
     let text = "";
     if (calculator.op1 !== null) {
         if (calculator.lastOperation && calculator.op1Type === "float") {
-            if ('new' in calculator.lastOperation && calculator.lastOperation.new === false) {
+            if (('new' in calculator.lastOperation && calculator.lastOperation.new === false) || (!('new' in calculator.lastOperation))) {
                 text += calculator.op1.toFixed(2);
             }
         } else {

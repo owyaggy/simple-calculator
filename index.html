@@ -4,6 +4,9 @@
 
 <head>
     <meta charset="UTF-8">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,200..1000;1,200..1000&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="./styles.css">
     <title>Calculator</title>
     <script defer src="./script.js"></script>
@@ -15,34 +18,77 @@
     <div class="main">
         <div class="display"></div>
         <div class="row">
-            <button id="backspace" class="toprow">d</button>
-            <button id="clear" class="toprow">c</button>
-            <button id="fn" class="toprow">?</button>
-            <button id="divide" class="operator">÷</button>
+            <button id="backspace" class="toprow">
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor"  viewBox="0 0 16 16">
+                    <path d="M5.83 5.146a.5.5 0 0 0 0 .708L7.975 8l-2.147 2.146a.5.5 0 0 0 .707.708l2.147-2.147 2.146 2.147a.5.5 0 0 0 .707-.708L9.39 8l2.146-2.146a.5.5 0 0 0-.707-.708L8.683 7.293 6.536 5.146a.5.5 0 0 0-.707 0z"/>
+                    <path d="M13.683 1a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-7.08a2 2 0 0 1-1.519-.698L.241 8.65a1 1 0 0 1 0-1.302L5.084 1.7A2 2 0 0 1 6.603 1zm-7.08 1a1 1 0 0 0-.76.35L1 8l4.844 5.65a1 1 0 0 0 .759.35h7.08a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1z"/>
+                </svg>
+            </button>
+            <button id="clear" class="toprow">
+                <p class="button-text">C</p>
+            </button>
+            <button id="fn" class="toprow">
+                <p class="button-text">%</p>
+            </button>
+            <button id="divide" class="operator">
+                <p class="button-text">÷</p>
+            </button>
         </div>
         <div class="row">
-            <button id="seven" class="digit">7</button>
-            <button id="eight" class="digit">8</button>
-            <button id="nine" class="digit">9</button>
-            <button id="multiply" class="operator">x</button>
+            <button id="seven" class="digit">
+                <p class="button-text">7</p>
+            </button>
+            <button id="eight" class="digit">
+                <p class="button-text">8</p>
+            </button>
+            <button id="nine" class="digit">
+                <p class="button-text">9</p>
+            </button>
+            <button id="multiply" class="operator">
+                <p class="button-text">x</p>
+            </button>
         </div>
         <div class="row">
-            <button id="four" class="digit">4</button>
-            <button id="five" class="digit">5</button>
-            <button id="six" class="digit">6</button>
-            <button id="subtract" class="operator">-</button>
+            <button id="four" class="digit">
+                <p class="button-text">4</p>
+            </button>
+            <button id="five" class="digit">
+                <p class="button-text">5</p>
+            </button>
+            <button id="six" class="digit">
+                <p class="button-text">6</p>
+            </button>
+            <button id="subtract" class="operator">
+                <p class="button-text">-</p>
+            </button>
         </div>
         <div class="row">
-            <button id="one" class="digit">1</button>
-            <button id="two" class="digit">2</button>
-            <button id="three" class="digit">3</button>
-            <button id="add" class="operator">+</button>
+            <button id="one" class="digit">
+                <p class="button-text">1</p>
+            </button>
+            <button id="two" class="digit">
+                <p class="button-text">2</p>
+            </button>
+            <button id="three" class="digit">
+                <p class="button-text">3</p>
+            </button>
+            <button id="add" class="operator">
+                <p class="button-text">+</p>
+            </button>
         </div>
         <div class="row">
-            <button id="sign" class="bottomrow">±</button>
-            <button id="zero" class="digit">0</button>
-            <button id="decimal" class="bottomrow">.</button>
-            <button id="equals" class="operator">=</button>
+            <button id="sign" class="bottomrow">
+                <p class="button-text">±</p>
+            </button>
+            <button id="zero" class="digit">
+                <p class="button-text">0</p>
+            </button>
+            <button id="decimal" class="bottomrow">
+                <p class="button-text">.</p>
+            </button>
+            <button id="equals" class="operator">
+                <p class="button-text">=</p>
+            </button>
         </div>
     </div>
 </div>
