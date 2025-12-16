@@ -56,12 +56,6 @@ button:hover {
     transition-duration: 0.3s;
 }
 
-.button-text {
-    padding: 0;
-    margin: 0;
-    border: 0;
-}
-
 .button svg {
     padding: 0;
     margin: 0;

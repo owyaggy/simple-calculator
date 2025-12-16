@@ -8,13 +8,13 @@
 function isDecimalAllowed(calculatorState) {
     const tokens = calculatorState.tokens;
     const operators = ["+", "-" ,"*" ,"/"];
-    tokens.forEach((token, index) => {
-        if (!operators.contains(token)) { // if operator present
-            return !tokens.slice(index).contains("."); // decimal -> false, else -> true
+    for (let i = 0; i < tokens.length; i++) {
+        if (operators.includes(tokens[i])) { // if operator present
+            return !(tokens.slice(i).includes(".")); // decimal -> false, else -> true
         }
-    });
+    }
     // at this point in execution, confirmed that no operator is present
-    return !tokens.contains("."); // decimal -> false, else -> true
+    return !tokens.includes("."); // decimal -> false, else -> true
 }
 
 /**
@@ -46,7 +46,7 @@ function completeExpressionPresent(calculatorState) {
     const tokens = calculatorState.tokens;
     // find index of operator
     const operators = ["+", "-" ,"*" ,"/"];
-    const operatorIndex = tokens.findIndex(token => operators.contains(token));
+    const operatorIndex = tokens.findIndex(token => operators.includes(token));
     // if no operator found, return false
     if (operatorIndex === -1) {
         return false;
@@ -134,9 +134,12 @@ function percentAllowed(calculatorState) {
  * General handler for all new tokens
  */
 function tokenAllowed(calculatorState, newToken) {
+    if (Number.isInteger(newToken)) {
+        return digitAllowed(calculatorState);
+    }
     switch (newToken) {
-        case Number.isInteger(newToken):
-            return digitAllowed(calculatorState);
+        case "sign":
+            return signChangeAllowed(calculatorState);
         case "add":
         case "subtract":
         case "multiply":
@@ -190,7 +193,7 @@ function helperFindOperator(tokens) {
  * @param {Array} operandTokens
  * @returns {Boolean}
  */
-function helperOperandIsPositive(operandTokens) {
+function helperOperandIsNegative(operandTokens) {
     return operandTokens.includes('neg');
 }
 
@@ -200,10 +203,10 @@ function helperOperandIsPositive(operandTokens) {
  * @returns {Array}
  */
 function helperToggleSign(operandTokens) {
-    if (helperOperandIsPositive(operandTokens)) {
-        operandTokens = ['(', 'neg', ...operandTokens, ,')']; // add negative indicators
-    } else {
+    if (helperOperandIsNegative(operandTokens)) {
         operandTokens = operandTokens.slice(2, -1); // remove negative indicators
+    } else {
+        operandTokens = ['(', 'neg', ...operandTokens, ,')']; // add negative indicators
     }
     return operandTokens;
 }
@@ -214,13 +217,13 @@ function helperToggleSign(operandTokens) {
  * @return {Number}
  */
 function helperParseOperandTokens(operandTokens) {
-    if (!helperOperandIsPositive(operandTokens)) {
+    if (helperOperandIsNegative(operandTokens)) { //TODO
         // refactor negative numbers to work with parseFloat
         operandTokens = "-" + operandTokens.slice(2, -1).join("");
         return parseFloat(operandTokens);
     } else {
         // positive numbers just need to be joined
-        operandTokens.join("");
+        operandTokens = operandTokens.join("");
         return parseFloat(operandTokens);
     }
 }
@@ -273,7 +276,8 @@ function processDecimalToken(calculatorState, token) {
         newCalculatorState.tokens = [];
         newCalculatorState.lhsIsResult = false;
     }
-    if (newCalculatorState.tokens[-1] !== 0) {
+    const lastToken = newCalculatorState.tokens.at(-1);
+    if (!Number.isInteger(lastToken)) {
         newCalculatorState.tokens.push(0);
     }
     newCalculatorState.tokens.push(".");
@@ -296,7 +300,8 @@ function processSignChangeToken(calculatorState, token) {
         rhs = helperToggleSign(rhs);
     }
     // return LHS, operator, RHS in flat array
-    return [...lhs, calculatorState.tokens[operatorIndex], ...rhs];
+    newCalculatorState.tokens = [...lhs, calculatorState.tokens[operatorIndex], ...rhs];
+    return newCalculatorState;
 }
 
 /**
@@ -306,14 +311,16 @@ function processEqualsToken(calculatorState, token) {
     let newCalculatorState = structuredClone(calculatorState);
     const operatorIndex = helperFindOperator(calculatorState.tokens);
     let operator = null;
-    let lhsTokens = newCalculatorState.tokens.slice(0, operatorIndex);
+    let lhsTokens = null;
     let rhsTokens = null;
     if (operatorIndex === -1) {
         // no operator path only possible if last operation exists
         // apply last operation
+        lhsTokens = calculatorState.tokens;
         operator = calculatorState.lastOperation.operator;
-        rhsTokens = calculator.lastOperation.rhsTokens;
+        rhsTokens = calculatorState.lastOperation.rhsTokens;
     } else {
+        lhsTokens = newCalculatorState.tokens.slice(0, operatorIndex);
         operator = calculatorState.tokens[operatorIndex];
         rhsTokens = calculatorState.tokens.slice(operatorIndex + 1);
     }
@@ -340,6 +347,7 @@ function processEqualsToken(calculatorState, token) {
         rhsTokens: rhsTokens,
     };
     newCalculatorState.lhsIsResult = true;
+    return newCalculatorState;
 }
 
 /**
@@ -348,7 +356,7 @@ function processEqualsToken(calculatorState, token) {
 function processOperatorToken(calculatorState, token) {
     let newCalculatorState = structuredClone(calculatorState);
     const operatorIndex = helperFindOperator(calculatorState.tokens);
-    if (operatorIndex < calculatorState.tokens.length - 1) {
+    if (operatorIndex < calculatorState.tokens.length - 1 && operatorIndex !== -1) {
         // introducing a second operator! need to handle
         // TODO: this is a temporary solution
         // way to have some sort of "pop" effect as a result replaces an expression?
@@ -372,6 +380,7 @@ function processOperatorToken(calculatorState, token) {
             break;
     }
     newCalculatorState.tokens.push(newOperator);
+    return newCalculatorState;
 }
 
 /**
@@ -405,10 +414,11 @@ function processPercentToken(calculatorState, token) {
  * General handler for new tokens
  */
 function processToken(calculatorState, token) {
+    if (!isNaN(parseInt(token))) {
+        return processDigitToken(calculatorState, token);
+    }
     switch (token) {
-        case !(isNaN(parseInt(token))):
-            return processDigitToken(calculatorState, token);
-        case ".":
+        case "decimal":
             return processDecimalToken(calculatorState, token);
         case "sign":
             return processSignChangeToken(calculatorState, token);
@@ -421,6 +431,8 @@ function processToken(calculatorState, token) {
             return processBackspaceToken(calculatorState, token);
         case "clear":
             return processClearToken(calculatorState, token);
+        case "equals":
+            return processEqualsToken(calculatorState, token);
         case "percent":
             return processPercentToken(calculatorState, token);
         default:
@@ -473,7 +485,7 @@ function processClick(input) {
     }
 }
 
-function updateDisplay() {
+function updateDisplay(calculatorState) {
     /**
      * Need to parse the token list
      * Should produce an underlying mathematical expression
@@ -493,12 +505,13 @@ function updateDisplay() {
     } 
     displayContent = displayContent.map(token => (token === "neg") ? "-" : token);
     displayContent = displayContent.map(token => (token === "/") ? "÷" : token);
+    displayContent = displayContent.map(token => (token === "*") ? "x" : token);
     // round decimal of answer to two places
     if (calculatorState.lhsIsResult) {
-        const lhsEnd = displayContent.findIndex(" ");
+        const lhsEnd = displayContent.findIndex(elem => elem === " ");
         if (lhsEnd !== -1) {
             // there is an operator or distinct LHS
-            const lhsDecimalIndex = displayContent.findIndex(".");
+            const lhsDecimalIndex = displayContent.findIndex(elem => elem === ".");
             if (lhsDecimalIndex !== -1) {
                 // decimal found on lhs
                 displayContent = [
@@ -508,7 +521,7 @@ function updateDisplay() {
             }
         } else {
             // only a "LHS" (result) is availably
-            const lhsDecimalIndex = displayContent.findIndex(".");
+            const lhsDecimalIndex = displayContent.findIndex(elem => elem === ".");
             if (lhsDecimalIndex !== -1) {
                 // decimal found on LHS
                 displayContent = displayContent.slice(0, lhsDecimalIndex + 3);
@@ -526,7 +539,7 @@ function buttonClick(event) {
         const newToken = processClick(target);
         if (tokenAllowed(calculatorState, newToken)) {
             calculatorState = processToken(calculatorState, newToken);
-            updateDisplay();
+            updateDisplay(calculatorState);
         }
     }
 }
