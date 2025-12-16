@@ -6,7 +6,8 @@ export {
     clearAllowed,
     decimalAllowed,
     equalsAllowed,
-}
+    percentAllowed,
+};
 
 /**
  * For decimal point:
@@ -129,4 +130,12 @@ function equalsAllowed(calculatorState) {
             completeExpressionPresent(calculatorState)
         )
     );
+}
+
+/**
+ * Rules for percentage:
+ * - TODO
+ */
+function percentAllowed(calculatorState) {
+    // TODO
 }

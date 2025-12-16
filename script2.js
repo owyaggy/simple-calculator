@@ -29,7 +29,7 @@ function processClick(input) {
         case "backspace":
         case "clear":
         case "decimal":
-        case "fn":
+        case "percent":
             return input;
         default:
             return "error";
