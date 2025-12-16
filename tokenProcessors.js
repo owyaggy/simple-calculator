@@ -1,5 +1,3 @@
-export { processToken, helperFindOperator };
-
 function add(lhs, rhs) {
     return lhs + rhs;
 }

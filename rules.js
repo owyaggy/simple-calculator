@@ -1,5 +1,3 @@
-export { tokenAllowed };
-
 /**
  * For decimal point:
  * Max 1 allowed between operators
