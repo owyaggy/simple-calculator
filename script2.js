@@ -1,3 +1,12 @@
+import { tokenAllowed } from "./rules.js";
+import { processToken, helperFindOperator } from "./tokenProcessors.js";
+
+let calculatorState = {
+    tokens: [],
+    lastOperation: null,
+    lhsIsResult: false,
+};
+
 function processClick(input) {
     switch (input) {
         case "one":
@@ -36,23 +45,6 @@ function processClick(input) {
     }
 }
 
-function updateTokens(update) {
-    switch (update) {
-        case "backspace":
-            tokens.pop();
-            break;
-        case "clear":
-            tokens = [];
-            break;
-        case "sign":
-            // need to handle special case
-            // TODO
-            break;
-        default:
-            tokens.push(update);
-    }
-}
-
 function updateDisplay() {
     /**
      * Need to parse the token list
@@ -60,16 +52,54 @@ function updateDisplay() {
      * Perhaps stored in op1, op2, operator variables
      * 
      */
-    
+    let displayContent = calculatorState.tokens;
+    const operatorIndex = helperFindOperator(displayContent);
+    if (operatorIndex !== -1) {
+        displayContent = [
+            ...displayContent.slice(0, operatorIndex),
+            " ",
+            displayContent[operatorIndex],
+            " ",
+            ...displayContent.slice(operatorIndex + 1),
+        ];
+    } 
+    displayContent = displayContent.map(token => (token === "neg") ? "-" : token);
+    displayContent = displayContent.map(token => (token === "/") ? "÷" : token);
+    // round decimal of answer to two places
+    if (calculatorState.lhsIsResult) {
+        const lhsEnd = displayContent.findIndex(" ");
+        if (lhsEnd !== -1) {
+            // there is an operator or distinct LHS
+            const lhsDecimalIndex = displayContent.findIndex(".");
+            if (lhsDecimalIndex !== -1) {
+                // decimal found on lhs
+                displayContent = [
+                    ...displayContent.slice(0, Math.min(lhsDecimalIndex + 3, lhsEnd)),
+                    ...displayContent.slice(lhsEnd)
+                ];
+            }
+        } else {
+            // only a "LHS" (result) is availably
+            const lhsDecimalIndex = displayContent.findIndex(".");
+            if (lhsDecimalIndex !== -1) {
+                // decimal found on LHS
+                displayContent = displayContent.slice(0, lhsDecimalIndex + 3);
+            }
+        }
+    }
+    const display = document.querySelector(".display");
+    display.textContent = displayContent.join("");
 }
 
 function buttonClick(event) {
     const target = event.target.id;
     if (target) {
         // only if target is something truthy (meaningful)
-        const update = processClick(target);
-        updateTokens(update);
-        updateDisplay();
+        const newToken = processClick(target);
+        if (tokenAllowed(calculatorState, newToken)) {
+            calculatorState = processToken(calculatorState, newToken);
+            updateDisplay();
+        }
     }
 }
 
@@ -79,6 +109,3 @@ function setupBtns() {
 }
 
 setupBtns();
-
-let tokens = [];
-

@@ -1,13 +1,4 @@
-export {
-    digitAllowed,
-    signChangeAllowed,
-    operatorAllowed,
-    backspaceAllowed,
-    clearAllowed,
-    decimalAllowed,
-    equalsAllowed,
-    percentAllowed,
-};
+export { tokenAllowed };
 
 /**
  * For decimal point:
@@ -138,4 +129,29 @@ function equalsAllowed(calculatorState) {
  */
 function percentAllowed(calculatorState) {
     // TODO
+}
+
+/**
+ * General handler for all new tokens
+ */
+function tokenAllowed(calculatorState, newToken) {
+    switch (newToken) {
+        case Number.isInteger(newToken):
+            return digitAllowed(calculatorState);
+        case "add":
+        case "subtract":
+        case "multiply":
+        case "divide":
+            return operatorAllowed(calculatorState);
+        case "backspace":
+            return backspaceAllowed(calculatorState);
+        case "clear":
+            return clearAllowed(calculatorState);
+        case "decimal":
+            return decimalAllowed(calculatorState);
+        case "equals":
+            return equalsAllowed(calculatorState);
+        case "percent":
+            return percentAllowed(calculatorState);
+    }
 }
