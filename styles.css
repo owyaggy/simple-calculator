@@ -100,7 +100,7 @@ button:hover {
 .display {
     flex: 1;
     font-family: "Nunito", sans-serif;
-    font-size: 48px;
+    font-size: 72px;
     font-weight: bold;
     display: flex;
     justify-content: flex-end;

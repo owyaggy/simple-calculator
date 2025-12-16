@@ -206,7 +206,7 @@ function helperToggleSign(operandTokens) {
     if (helperOperandIsNegative(operandTokens)) {
         operandTokens = operandTokens.slice(2, -1); // remove negative indicators
     } else {
-        operandTokens = ['(', 'neg', ...operandTokens, ,')']; // add negative indicators
+        operandTokens = ['(', 'neg', ...operandTokens,')']; // add negative indicators
     }
     return operandTokens;
 }
@@ -290,18 +290,23 @@ function processDecimalToken(calculatorState, token) {
 function processSignChangeToken(calculatorState, token) {
     let newCalculatorState = structuredClone(calculatorState);
     const operatorIndex = helperFindOperator(calculatorState.tokens);
-    let lhs = newCalculatorState.tokens.slice(0, operatorIndex);
-    let rhs = newCalculatorState.tokens.slice(operatorIndex + 1);
+    let lhs = null;
+    let rhs = [];
     if (operatorIndex === -1) {
+        lhs = newCalculatorState.tokens;
         // modifying LHS
         lhs = helperToggleSign(lhs);
+        newCalculatorState.tokens = [...lhs];
+        return newCalculatorState;
     } else {
+        lhs = newCalculatorState.tokens.slice(0, operatorIndex);
+        rhs = newCalculatorState.tokens.slice(operatorIndex + 1);
         // modifying RHS
         rhs = helperToggleSign(rhs);
+        // return LHS, operator, RHS in flat array
+        newCalculatorState.tokens = [...lhs, calculatorState.tokens[operatorIndex], ...rhs];
+        return newCalculatorState;
     }
-    // return LHS, operator, RHS in flat array
-    newCalculatorState.tokens = [...lhs, calculatorState.tokens[operatorIndex], ...rhs];
-    return newCalculatorState;
 }
 
 /**
