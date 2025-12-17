@@ -50,7 +50,7 @@ button {
     align-items: center;
 }
 
-button:hover {
+button:hover, .keydown {
     transform: scale(1.15);
     transition-timing-function: cubic-bezier(0.075, 0.82, 0.165, 1);
     transition-duration: 0.3s;
@@ -75,7 +75,7 @@ button:hover {
     background-color: #7e7c7c;
 }
 
-.toprow:hover {
+.toprow:hover, .toprow.keydown {
     background-color: rgb(168, 163, 163);
 }
 
@@ -84,8 +84,8 @@ button:hover {
     background-color: rgb(67, 65, 65);
 }
 
-.digit:hover,
-.bottomrow:hover {
+.digit:hover, .digit.keydown,
+.bottomrow:hover, .bottomrow.keydown {
     background-color: #858181;
 }
 
@@ -93,7 +93,7 @@ button:hover {
     background-color: rgb(255, 136, 0);
 }
 
-.operator:hover {
+.operator:hover, .operator.keydown {
     background-color: #ffa048;
 }
 

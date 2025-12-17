@@ -54,8 +54,17 @@ function completeExpressionPresent(calculatorState) {
     // at this point, operator is confirmed to be present
     // check both LHS and RHS are numbers
     // if both are numbers, expression is valid, return true. else return false
-    const lhs = tokens.slice(0, operatorIndex).join();
-    const rhs = tokens.slice(operatorIndex + 1).join();
+    // for purposes of validation, convert operands to positive numbers
+    let lhsTokens = tokens.slice(0, operatorIndex);
+    let rhsTokens = tokens.slice(operatorIndex + 1);
+    if (helperOperandIsNegative(lhsTokens)) {
+        lhsTokens = helperToggleSign(lhsTokens);
+    }
+    if (helperOperandIsNegative(rhsTokens)) {
+        rhsTokens = helperToggleSign(rhsTokens);
+    }
+    const lhs = lhsTokens.join("");
+    const rhs = rhsTokens.join("");
     // expression complete if parseFloat of lhs and rhs are each not NaN
     return !isNaN(parseFloat(lhs)) && !isNaN(parseFloat(rhs));
 }
@@ -217,7 +226,7 @@ function helperToggleSign(operandTokens) {
  * @return {Number}
  */
 function helperParseOperandTokens(operandTokens) {
-    if (helperOperandIsNegative(operandTokens)) { //TODO
+    if (helperOperandIsNegative(operandTokens)) {
         // refactor negative numbers to work with parseFloat
         operandTokens = "-" + operandTokens.slice(2, -1).join("");
         return parseFloat(operandTokens);
@@ -244,6 +253,32 @@ function helperConvertToTokens(result) {
         resultTokens = helperToggleSign(resultTokens);
     }
     return resultTokens;
+}
+
+/**
+ * 
+ * @param {Array} operand
+ * @param {number} digits The number of digits to round to
+ * @returns {Array}
+ */
+function helperRoundOperand(operand, digits) {
+    // record if negative
+    const isNegative = helperOperandIsNegative(operand);
+    if (isNegative) { // convert to positive
+        operand = helperToggleSign(operand);
+    }
+    operand = operand.join(""); // convert array -> stirng
+    operand = parseFloat(operand); // convert string -> float
+    operand = ( // round float
+        Math.round(operand * (10 ** digits)) / 
+        (10 ** digits)
+    );
+    if (isNegative) { // convert back to negative if necessary
+        operand = ['(', 'neg', ...operand.toString().split(""), ')']; // float --> array
+    } else {
+        operand = operand.toString().split(""); // float -> string -> array
+    }
+    return operand;
 }
 
 /**
@@ -485,8 +520,61 @@ function processClick(input) {
         case "decimal":
         case "percent":
             return input;
+        case "backspace-svg":
+            return "backspace";
         default:
             return "error";
+    }
+}
+
+function processKey(input) {
+    switch (input) {
+        case "0":
+            return "zero";
+        case "1":
+            return "one";
+        case "2":
+            return "two";
+        case "3":
+            return "three";
+        case "4":
+            return "four";
+        case "5":
+            return "five";
+        case "6":
+            return "six";
+        case "7":
+            return "seven";
+        case "8":
+            return "eight";
+        case "9":
+            return "nine";
+        case "+":
+            return "add";
+        case "-":
+            return "subtract";
+        case "*":
+        case "x":
+            return "multiply";
+        case "/":
+        case "÷":
+            return "divide";
+        case "c":
+        case "C":
+            return "clear";
+        case "Backspace":
+            return "backspace";
+        case ".":
+            return "decimal";
+        case "=":
+        case "Enter":
+            return "equals";
+        case "%":
+            return "percent";
+        case " ":
+            return "sign";
+        default:
+            return "invalid";
     }
 }
 
@@ -499,6 +587,7 @@ function updateDisplay(calculatorState) {
      */
     let displayContent = calculatorState.tokens;
     const operatorIndex = helperFindOperator(displayContent);
+    let roundDigits = 4; // how many digits to round to
     if (operatorIndex !== -1) {
         displayContent = [
             ...displayContent.slice(0, operatorIndex),
@@ -507,10 +596,7 @@ function updateDisplay(calculatorState) {
             " ",
             ...displayContent.slice(operatorIndex + 1),
         ];
-    } 
-    displayContent = displayContent.map(token => (token === "neg") ? "-" : token);
-    displayContent = displayContent.map(token => (token === "/") ? "÷" : token);
-    displayContent = displayContent.map(token => (token === "*") ? "x" : token);
+    }
     // round decimal of answer to two places
     if (calculatorState.lhsIsResult) {
         const lhsEnd = displayContent.findIndex(elem => elem === " ");
@@ -519,20 +605,22 @@ function updateDisplay(calculatorState) {
             const lhsDecimalIndex = displayContent.findIndex(elem => elem === ".");
             if (lhsDecimalIndex !== -1) {
                 // decimal found on lhs
-                displayContent = [
-                    ...displayContent.slice(0, Math.min(lhsDecimalIndex + 3, lhsEnd)),
-                    ...displayContent.slice(lhsEnd)
-                ];
+                let lhsTokens = displayContent.slice(0, lhsEnd);
+                lhsTokens = helperRoundOperand(lhsTokens, roundDigits);
+                displayContent = [...lhsTokens, ...displayContent.slice(lhsEnd)];
             }
         } else {
             // only a "LHS" (result) is availably
             const lhsDecimalIndex = displayContent.findIndex(elem => elem === ".");
             if (lhsDecimalIndex !== -1) {
                 // decimal found on LHS
-                displayContent = displayContent.slice(0, lhsDecimalIndex + 3);
+                displayContent = helperRoundOperand(displayContent, roundDigits);
             }
         }
     }
+    displayContent = displayContent.map(token => (token === "neg") ? "-" : token);
+    displayContent = displayContent.map(token => (token === "/") ? "÷" : token);
+    displayContent = displayContent.map(token => (token === "*") ? "x" : token);
     const display = document.querySelector(".display");
     display.textContent = displayContent.join("");
 }
@@ -549,9 +637,46 @@ function buttonClick(event) {
     }
 }
 
+function keyDown(event) {
+    let key = event.key;
+    console.log(key);
+    const target = processKey(key);
+    if (target !== "invalid") {
+        let buttonClasses = document.querySelector(`#${target}`).classList;
+        buttonClasses.add("keydown");
+    }
+}
+
+function keyUp(event) {
+    let key = event.key;
+    const target = processKey(key);
+    if (target !== "invalid") {
+        let buttonClasses = document.querySelector(`#${target}`).classList;
+        buttonClasses.remove("keydown");
+        const newToken = processClick(target);
+        if (tokenAllowed(calculatorState, newToken)) {
+            calculatorState = processToken(calculatorState, newToken);
+            updateDisplay(calculatorState);
+        }
+    }
+}
+
 function setupBtns() {
     const container = document.querySelector(".main");
     container.addEventListener("click", buttonClick);
+    document.addEventListener("keydown", keyDown);
+    document.addEventListener("keyup", keyUp);
 }
 
 setupBtns();
+
+// TODO: why is sign change allowed for empty second operand?
+// TODO: fix backspace not working properly if deleting something that is rounded
+// and not currently visible
+// TODO: fix backspace not working properly if deleting from a negative number
+// TODO: fix display overflow
+// TODO: fix display vertical height
+// TODO: add last operation view
+// TODO: add percent functionality
+// TODO: fix adding decimal to a negative number
+// TODO; display really long, but simplifiable, numbers in scientific notation
