@@ -407,11 +407,21 @@ function processEqualsToken(calculatorState, token) {
             result = divide(lhs, rhs);
             break;
     }
+    if (result === "DIV#/0!") {
+        newCalculatorState.tokens = ["div by 0? bruh."];
+    } else if (lhs > Number.MAX_SAFE_INTEGER || lhs < Number.MIN_SAFE_INTEGER ||
+        rhs > Number.MAX_SAFE_INTEGER || rhs < Number.MIN_SAFE_INTEGER
+    ) {
+        newCalculatorState.tokens = ["Input exceeds limit"];
+    } else if (result > Number.MAX_SAFE_INTEGER || result < Number.MIN_SAFE_INTEGER) {
+        newCalculatorState.tokens = ["Result exceeds limit"];
+    } else {
         newCalculatorState.tokens = helperConvertToTokens(result);
         newCalculatorState.lastOperation = {
             operator: operator,
             rhsTokens: rhsTokens,
         };
+    }
     newCalculatorState.lhsIsResult = true;
     return newCalculatorState;
 }
@@ -642,14 +652,13 @@ function processKey(input) {
     }
 }
 
-function updateDisplay(calculatorState) {
+function displayCalculation(calculatorState) {
     /**
      * Need to parse the token list
      * Should produce an underlying mathematical expression
      * Perhaps stored in op1, op2, operator variables
      * 
      */
-    const display = document.querySelector(".display");
     let displayContent = calculatorState.tokens;
     const operatorIndex = helperFindOperator(displayContent);
     if (operatorIndex !== -1) {
@@ -688,7 +697,20 @@ function updateDisplay(calculatorState) {
     if (displayContent.length === 0) {
         displayContent.push(0);
     }
-    display.textContent = displayContent.join("");
+    return displayContent.join("");
+}
+
+function updateDisplay(calculatorState) {
+    const display = document.querySelector(".display");
+    let firstToken = calculatorState.tokens[0];
+    if (firstToken === "Input exceeds limit" ||
+        firstToken === "Result exceeds limit" ||
+        firstToken === "div by 0? bruh."
+    ) {
+        display.textContent = firstToken;
+    } else {
+        display.textContent = displayCalculation(calculatorState);
+    }
 }
 
 function buttonClick(event) {
@@ -747,7 +769,9 @@ updateDisplay(calculatorState);
 // TODO: add percent functionality
 // TODO: fix adding decimal to a negative number DONE
 // TODO: remove console.log statements DONE
-// TODO: handle exceeding safe integer limit
-// TODO: handle division by 0
+// TODO: handle exceeding safe integer limit DONE
+// TODO: handle division by 0 DONE
 // TODO: fix being able to input = despite last token being an operator if
 // lastOperationIsResult is true DONE
+// TODO: fix what is possible after an error message is shown
+// can't repeat lastOperation, must be able to replace with digit
