@@ -79,6 +79,20 @@ function lastTokenNotOperator(calculatorState) {
 }
 
 /**
+ * For operator:
+ * Allowed if not currently showing an error
+ */
+function noError(calculatorState) {
+    const firstToken = calculatorState.tokens[0];
+    const errorMessages = [
+        "Input exceeds limit",
+        "Result exceeds limit",
+        "div by 0? bruh."
+    ];
+    return !(errorMessages.includes(firstToken));
+}
+
+/**
  * Rules for digits:
  * - (none, always allowed)
  */
@@ -97,11 +111,10 @@ function signChangeAllowed(calculatorState) {
 
 /** 
  * Rules for operators:
- * - tokensPresent = true
+ * - noError = true
  */
 function operatorAllowed(calculatorState) {
-    //return tokensPresent(calculatorState);
-    return true;
+    return noError(calculatorState);
 }
 
 /**
