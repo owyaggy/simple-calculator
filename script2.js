@@ -407,22 +407,11 @@ function processEqualsToken(calculatorState, token) {
             result = divide(lhs, rhs);
             break;
     }
-    // need to verify lhs, rhs, and result are all safe
-    if (lhs > Number.MAX_SAFE_INTEGER || lhs < Number.MAX_SAFE_INTEGER ||
-        rhs < Number.MAX_SAFE_INTEGER || rhs < Number.MAX_SAFE_INTEGER 
-    ) {
-        newCalculatorState.tokens = "Invalid input";
-    } else if (result = "DIV#/0!") {
-        newCalculatorState.tokens = "Dividing by 0? What are you, crazy?";
-    } else if (result < Number.MAX_SAFE_INTEGER || result > Number.MAX_SAFE_INTEGER) {
-        newCalculatorState.tokens = "Result too large";
-    } else {
         newCalculatorState.tokens = helperConvertToTokens(result);
         newCalculatorState.lastOperation = {
             operator: operator,
             rhsTokens: rhsTokens,
         };
-    }
     newCalculatorState.lhsIsResult = true;
     return newCalculatorState;
 }
@@ -662,13 +651,6 @@ function updateDisplay(calculatorState) {
      */
     const display = document.querySelector(".display");
     let displayContent = calculatorState.tokens;
-    if (displayContent === "Invalid input" ||
-        displayContent === "Dividing by 0? What are you, crazy?" ||
-        displayContent === "Result too large"
-    ) {
-        display.textContent = displayContent;
-        return;
-    }
     const operatorIndex = helperFindOperator(displayContent);
     if (operatorIndex !== -1) {
         displayContent = [
