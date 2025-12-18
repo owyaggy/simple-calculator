@@ -1,34 +1,553 @@
-function add(op1, op2) {
-    return op1 + op2;
+/** ###### RULES ###### */
+/**
+ * For decimal point:
+ * Max 1 allowed between operators
+ * If no operator present, just have to check if there's already a decimal
+ * If operator is present, check for a decimal after the operator
+ */
+function isDecimalAllowed(calculatorState) {
+    const tokens = calculatorState.tokens;
+    const operators = ["+", "-" ,"*" ,"/"];
+    for (let i = 0; i < tokens.length; i++) {
+        if (operators.includes(tokens[i])) { // if operator present
+            return !(tokens.slice(i).includes(".")); // decimal -> false, else -> true
+        }
+    }
+    // at this point in execution, confirmed that no operator is present
+    return !tokens.includes("."); // decimal -> false, else -> true
 }
 
-function subtract(op1, op2) {
-    return op1 - op2;
+/**
+ * For sign change, equals, backspace, and clear:
+ * Only allowed if stack isn't empty
+ * If tokens are present (desired), return true
+ * Otherwise, it no tokens are present (stack is empty), return false
+ */
+function tokensPresent(calculatorState) {
+    return calculatorState.tokens.length !== 0;
 }
 
-function multiply(op1, op2) {
-    return op1 * op2;
+/**
+ * For equals:
+ * If only one operand is present (no operator), only allowed if there is a
+ * `lastOperation` to apply
+ * IMPORTANT: relies on lastOperation being set to `null` as soon as a new operator
+ * is entered
+ */
+function lastOperationPresent(calculatorState) {
+    return calculatorState.lastOperation !== null;
 }
 
-function divide(op1, op2) {
-    if (op2 === 0) return "DIV#/0!";
-    return op1 / op2;
+/**
+ * For equals:
+ * Allowed if a full expression (operand, operator, operand) is present
+ */
+function completeExpressionPresent(calculatorState) {
+    const tokens = calculatorState.tokens;
+    // find index of operator
+    const operators = ["+", "-" ,"*" ,"/"];
+    const operatorIndex = tokens.findIndex(token => operators.includes(token));
+    // if no operator found, return false
+    if (operatorIndex === -1) {
+        return false;
+    }
+    // at this point, operator is confirmed to be present
+    // check both LHS and RHS are numbers
+    // if both are numbers, expression is valid, return true. else return false
+    // for purposes of validation, convert operands to positive numbers
+    let lhsTokens = tokens.slice(0, operatorIndex);
+    let rhsTokens = tokens.slice(operatorIndex + 1);
+    if (helperOperandIsNegative(lhsTokens)) {
+        lhsTokens = helperToggleSign(lhsTokens);
+    }
+    if (helperOperandIsNegative(rhsTokens)) {
+        rhsTokens = helperToggleSign(rhsTokens);
+    }
+    const lhs = lhsTokens.join("");
+    const rhs = rhsTokens.join("");
+    // expression complete if parseFloat of lhs and rhs are each not NaN
+    return !isNaN(parseFloat(lhs)) && !isNaN(parseFloat(rhs));
 }
 
-function operate(operator, op1, op2) {
-    switch (operator) {
+/** 
+ * For sign change:
+ * Allowed if last token is not an operation
+ */
+function lastTokenNotOperator(calculatorState) {
+    const operators = ["+", "-" ,"*" ,"/"];
+    return !(operators.includes(calculatorState.tokens.at(-1)));
+}
+
+/**
+ * Rules for digits:
+ * - (none, always allowed)
+ */
+function digitAllowed(calculatorState) {
+    return true;
+}
+
+/**
+ * Rules for sign change:
+ * - tokensPresent = true
+ * - lastTokenNotOperator = true
+ */
+function signChangeAllowed(calculatorState) {
+    return tokensPresent(calculatorState) && lastTokenNotOperator(calculatorState);
+}
+
+/** 
+ * Rules for operators:
+ * - tokensPresent = true
+ */
+function operatorAllowed(calculatorState) {
+    //return tokensPresent(calculatorState);
+    return true;
+}
+
+/**
+ * Rules for backspace:
+ * - tokensPresent = true
+ */
+function backspaceAllowed(calculatorState) {
+    return tokensPresent(calculatorState);
+}
+
+/**
+ * Rules for clear:
+ * - tokensPresent = true
+ */
+function clearAllowed(calculatorState) {
+    return tokensPresent(calculatorState);
+}
+
+/** 
+ * Rules for decimal:
+ * - isDecimalAllowed = true
+ */
+function decimalAllowed(calculatorState) {
+    return isDecimalAllowed(calculatorState);
+}
+
+/**
+ * Rules for equals:
+ * - tokensPresent = true
+ * - (lastOperationPresent = true) OR (completeExpressionPresent = true)
+ */
+function equalsAllowed(calculatorState) {
+    return (
+        tokensPresent(calculatorState) && (
+            lastOperationPresent(calculatorState) ||
+            completeExpressionPresent(calculatorState)
+        )
+    );
+}
+
+/**
+ * Rules for percentage:
+ * - TODO
+ */
+function percentAllowed(calculatorState) {
+    // TODO
+}
+
+/**
+ * General handler for all new tokens
+ */
+function tokenAllowed(calculatorState, newToken) {
+    if (Number.isInteger(newToken)) {
+        return digitAllowed(calculatorState);
+    }
+    switch (newToken) {
+        case "sign":
+            return signChangeAllowed(calculatorState);
         case "add":
-            return add(op1, op2);
         case "subtract":
-            return subtract(op1, op2);
         case "multiply":
-            return multiply(op1, op2);
         case "divide":
-            return divide(op1, op2);
-        default:
-            return "error";
+            return operatorAllowed(calculatorState);
+        case "backspace":
+            return backspaceAllowed(calculatorState);
+        case "clear":
+            return clearAllowed(calculatorState);
+        case "decimal":
+            return decimalAllowed(calculatorState);
+        case "equals":
+            return equalsAllowed(calculatorState);
+        case "percent":
+            return percentAllowed(calculatorState);
     }
 }
+
+/** ##### TOKEN PROCESSORS ##### */
+function add(lhs, rhs) {
+    return lhs + rhs;
+}
+
+function subtract(lhs, rhs) {
+    return lhs - rhs;
+}
+
+function multiply(lhs, rhs) {
+    return lhs * rhs;
+}
+
+function divide(lhs, rhs) {
+    if (rhs === 0) return "DIV#/0!";
+    return lhs / rhs;
+}
+
+/**
+ * Returns the index of the first operator.
+ * If no operator is found, returns -1.
+ * @param {Array} tokens 
+ * @returns {Number}
+ */
+function helperFindOperator(tokens) {
+    const operators = ["+", "-", "*", "/"];
+    return tokens.findIndex(token => operators.includes(token));
+}
+
+/**
+ * Determines whether the given operand, as represented by its component tokens, is
+ * negative or positive. 
+ * @param {Array} operandTokens
+ * @returns {Boolean}
+ */
+function helperOperandIsNegative(operandTokens) {
+    return operandTokens.includes('neg');
+}
+
+/**
+ * Flips the sign of the given operand, as represented by its component tokens.
+ * @param {Array} operandTokens 
+ * @returns {Array}
+ */
+function helperToggleSign(operandTokens) {
+    if (helperOperandIsNegative(operandTokens)) {
+        operandTokens = operandTokens.slice(2, -1); // remove negative indicators
+    } else {
+        operandTokens = ['(', 'neg', ...operandTokens,')']; // add negative indicators
+    }
+    return operandTokens;
+}
+
+/**
+ * Converts operand tokens into a floating point number.
+ * @param {Array} operandTokens 
+ * @return {Number}
+ */
+function helperParseOperandTokens(operandTokens) {
+    if (helperOperandIsNegative(operandTokens)) {
+        // refactor negative numbers to work with parseFloat
+        operandTokens = "-" + operandTokens.slice(2, -1).join("");
+        return parseFloat(operandTokens);
+    } else {
+        // positive numbers just need to be joined
+        operandTokens = operandTokens.join("");
+        return parseFloat(operandTokens);
+    }
+}
+
+/**
+ * Converts a number into tokens.
+ * @param {Number} result 
+ * @returns {Array}
+ */
+function helperConvertToTokens(result) {
+    const sign = result >= 0 ? 1 : -1; // positive -> 1, negative -> -1
+    result = Math.abs(result);
+    if (Number.isInteger(result)) {
+        result = Math.round(result); // strip trailing .0 from integers
+    }
+    let resultTokens = result.toString().split("");
+    if (sign < 0) {
+        resultTokens = helperToggleSign(resultTokens);
+    }
+    return resultTokens;
+}
+
+/**
+ * 
+ * @param {Array} operand
+ * @param {number} digits The number of digits to round to
+ * @returns {Array}
+ */
+function helperRoundOperand(operand, digits) {
+    // record if negative
+    const isNegative = helperOperandIsNegative(operand);
+    if (isNegative) { // convert to positive
+        operand = helperToggleSign(operand);
+    }
+    operand = operand.join(""); // convert array -> stirng
+    operand = parseFloat(operand); // convert string -> float
+    operand = ( // round float
+        Math.round(operand * (10 ** digits)) / 
+        (10 ** digits)
+    );
+    if (isNegative) { // convert back to negative if necessary
+        operand = ['(', 'neg', ...operand.toString().split(""), ')']; // float --> array
+    } else {
+        operand = operand.toString().split(""); // float -> string -> array
+    }
+    return operand;
+}
+
+/**
+ * New digit token
+ */
+function processDigitToken(calculatorState, token) {
+    let newCalculatorState = structuredClone(calculatorState);
+    const operatorIndex = helperFindOperator(calculatorState.tokens);
+    if (operatorIndex === -1 && calculatorState.lhsIsResult) {
+        // modifying LHS and current operand is a result
+        // toss old result, replace with new digit
+        newCalculatorState.tokens = [token];
+        newCalculatorState.lhsIsResult = false;
+        return newCalculatorState;
+    } else {
+        // current operand is not a result
+        // append new digit
+        // if ending token is ")", insert digit before
+        if (newCalculatorState.tokens.at(-1) === ")") {
+            newCalculatorState.tokens.pop();
+            newCalculatorState.tokens.push(token, ")");
+        } else {
+            newCalculatorState.tokens.push(token);
+        }
+        return newCalculatorState;
+    }
+}
+
+/**
+ * New decimal token
+ */
+function processDecimalToken(calculatorState, token) {
+    let newCalculatorState = structuredClone(calculatorState);
+    const operatorIndex = helperFindOperator(calculatorState.tokens);
+    if (operatorIndex === -1 && calculatorState.lhsIsResult) {
+        newCalculatorState.tokens = [];
+        newCalculatorState.lhsIsResult = false;
+    }
+    let lastToken = newCalculatorState.tokens.at(-1);
+    let negative = false;
+    if (lastToken === ")") {
+        negative = true;
+        newCalculatorState.tokens.pop();
+        lastToken = newCalculatorState.tokens.at(-1);
+    }
+    if (!Number.isInteger(lastToken)) {
+        newCalculatorState.tokens.push(0);
+    }
+    newCalculatorState.tokens.push(".");
+    if (negative) {
+        newCalculatorState.tokens.push(")");
+    }
+    return newCalculatorState;
+}
+
+/**
+ * New sign change token
+ */
+function processSignChangeToken(calculatorState, token) {
+    let newCalculatorState = structuredClone(calculatorState);
+    const operatorIndex = helperFindOperator(calculatorState.tokens);
+    let lhs = null;
+    let rhs = [];
+    if (operatorIndex === -1) {
+        lhs = newCalculatorState.tokens;
+        // modifying LHS
+        lhs = helperToggleSign(lhs);
+        newCalculatorState.tokens = [...lhs];
+        return newCalculatorState;
+    } else {
+        lhs = newCalculatorState.tokens.slice(0, operatorIndex);
+        rhs = newCalculatorState.tokens.slice(operatorIndex + 1);
+        // modifying RHS
+        rhs = helperToggleSign(rhs);
+        // return LHS, operator, RHS in flat array
+        newCalculatorState.tokens = [...lhs, calculatorState.tokens[operatorIndex], ...rhs];
+        return newCalculatorState;
+    }
+}
+
+/**
+ * New equals token
+ */
+function processEqualsToken(calculatorState, token) {
+    let newCalculatorState = structuredClone(calculatorState);
+    const operatorIndex = helperFindOperator(calculatorState.tokens);
+    let operator = null;
+    let lhsTokens = null;
+    let rhsTokens = null;
+    if (operatorIndex === -1) {
+        // no operator path only possible if last operation exists
+        // apply last operation
+        lhsTokens = calculatorState.tokens;
+        operator = calculatorState.lastOperation.operator;
+        rhsTokens = calculatorState.lastOperation.rhsTokens;
+    } else {
+        lhsTokens = newCalculatorState.tokens.slice(0, operatorIndex);
+        operator = calculatorState.tokens[operatorIndex];
+        rhsTokens = calculatorState.tokens.slice(operatorIndex + 1);
+    }
+    let lhs = helperParseOperandTokens(lhsTokens);
+    let rhs = helperParseOperandTokens(rhsTokens);
+    let result = null;
+    switch (operator) {
+        case "+":
+            result = add(lhs, rhs);
+            break;
+        case "-":
+            result = subtract(lhs, rhs);
+            break;
+        case "*":
+            result = multiply(lhs, rhs);
+            break;
+        case "/":
+            result = divide(lhs, rhs);
+            break;
+    }
+        newCalculatorState.tokens = helperConvertToTokens(result);
+        newCalculatorState.lastOperation = {
+            operator: operator,
+            rhsTokens: rhsTokens,
+        };
+    newCalculatorState.lhsIsResult = true;
+    return newCalculatorState;
+}
+
+/**
+ * New operator token
+ */
+function processOperatorToken(calculatorState, token) {
+    let newCalculatorState = structuredClone(calculatorState);
+    const operatorIndex = helperFindOperator(calculatorState.tokens);
+    if (operatorIndex < calculatorState.tokens.length - 1 && operatorIndex !== -1) {
+        // introducing a second operator! handle using equals processor
+        newCalculatorState = processEqualsToken(calculatorState, token);
+    } else if (operatorIndex === calculatorState.tokens.length - 1 && operatorIndex !== -1) {
+        newCalculatorState.tokens.pop(); // remove last operator
+    } else if (calculatorState.tokens.length === 0) {
+        newCalculatorState.tokens.push(0);
+    }
+    let newOperator = null;
+    switch (token) {
+        case "add":
+            newOperator = "+";
+            break;
+        case "subtract":
+            newOperator = "-";
+            break;
+        case "multiply":
+            newOperator = "*";
+            break;
+        case "divide":
+            newOperator = "/";
+            break;
+    }
+    newCalculatorState.tokens.push(newOperator);
+    newCalculatorState.lastOperation = null;
+    return newCalculatorState;
+}
+
+/**
+ * New backspace token
+ * Backspace rules for rounded numbers: deletes the first visible token
+ */
+function processBackspaceToken(calculatorState, token) {
+    let newCalculatorState = structuredClone(calculatorState);
+    let preserveNegative = newCalculatorState.tokens.at(-1) === ")";
+    if (preserveNegative) {
+        // if number is negative, remove the ending parenthesis (restore later)
+        newCalculatorState.tokens.pop();
+    }
+
+    let operatorIndex = helperFindOperator(newCalculatorState.tokens);
+    if (operatorIndex === -1) {
+        // deleting rounded number only possible if no operator present
+        if (newCalculatorState.tokens.includes(".")) {
+            // includes a decimal
+            let decimalIndex = newCalculatorState.tokens.findIndex(
+                token => token === "."
+            );
+            // change underlying representation to visual representation
+            // (specified rounding precision)
+            newCalculatorState.tokens = newCalculatorState.tokens.slice(
+                0, decimalIndex + (roundDigits + 1)
+            );
+        }
+    }
+
+    // remove last character by default
+    newCalculatorState.tokens.pop();
+
+    if (preserveNegative) {
+        // if number is negative, restore the ending parenthesis
+        newCalculatorState.tokens.push(")");
+    }
+    // if ending in "(-)" (empty negative number), remove negative
+    if (newCalculatorState.tokens.slice(-3).join("") === "(neg)") {
+        newCalculatorState.tokens = newCalculatorState.tokens.slice(0, -3);
+    }
+    return newCalculatorState;
+}
+
+/**
+ * New clear token
+ */
+function processClearToken(calculatorState, token) {
+    let newCalculatorState = structuredClone(calculatorState);
+    newCalculatorState.tokens = [];
+    newCalculatorState.lastOperation = null;
+    newCalculatorState.lhsIsResult = false;
+    return newCalculatorState;
+}
+
+/**
+ * New percentage token
+ */
+function processPercentToken(calculatorState, token) {
+    // TODO
+}
+
+/**
+ * General handler for new tokens
+ */
+function processToken(calculatorState, token) {
+    if (!isNaN(parseInt(token))) {
+        return processDigitToken(calculatorState, token);
+    }
+    switch (token) {
+        case "decimal":
+            return processDecimalToken(calculatorState, token);
+        case "sign":
+            return processSignChangeToken(calculatorState, token);
+        case "add":
+        case "subtract":
+        case "multiply":
+        case "divide":
+            return processOperatorToken(calculatorState, token);
+        case "backspace":
+            return processBackspaceToken(calculatorState, token);
+        case "clear":
+            return processClearToken(calculatorState, token);
+        case "equals":
+            return processEqualsToken(calculatorState, token);
+        case "percent":
+            return processPercentToken(calculatorState, token);
+        default:
+            throw new Error("Trying to process an improper token.");
+    }
+}
+
+let calculatorState = {
+
+    tokens: [],
+    lastOperation: null,
+    lhsIsResult: false,
+};
+
+let roundDigits = 4;
 
 function processClick(input) {
     switch (input) {
@@ -61,259 +580,174 @@ function processClick(input) {
         case "backspace":
         case "clear":
         case "decimal":
-        case "fn":
+        case "percent":
             return input;
+        case "backspace-svg":
+        case "backspace-path-1":
+        case "backspace-path-2":
+            return "backspace";
         default:
             return "error";
     }
 }
 
-function setupBtns() {
-    const container = document.querySelector(".main");
-    container.addEventListener("click", buttonClick);
+function processKey(input) {
+    switch (input) {
+        case "0":
+            return "zero";
+        case "1":
+            return "one";
+        case "2":
+            return "two";
+        case "3":
+            return "three";
+        case "4":
+            return "four";
+        case "5":
+            return "five";
+        case "6":
+            return "six";
+        case "7":
+            return "seven";
+        case "8":
+            return "eight";
+        case "9":
+            return "nine";
+        case "+":
+            return "add";
+        case "-":
+            return "subtract";
+        case "*":
+        case "x":
+            return "multiply";
+        case "/":
+        case "÷":
+            return "divide";
+        case "c":
+        case "C":
+            return "clear";
+        case "Backspace":
+            return "backspace";
+        case ".":
+            return "decimal";
+        case "=":
+        case "Enter":
+            return "equals";
+        case "%":
+            return "percent";
+        case " ":
+            return "sign";
+        default:
+            return "invalid";
+    }
 }
 
-function updateTokens(update) {
-    // identify token type: digit, operator, equals, some function?
-    if (Number.isInteger(update)) {
-        // digit being entered
-        if (calculator.operator === null) {
-            // operator absent, 1st operand being entered
-            if (calculator.op1 === null || (calculator.lastOperation !== null && (!calculator.lastOperation.new))) {
-                // 1st operand hasn't receveived any digits yet
-                // OR, 1st operand is result of prior calculation
-                // and we don't want to edit it
-                if (calculator.lastOperation) calculator.lastOperation.new = true;
-                if (calculator.op1Type === "dot") {
-                    // operand 1 just had a decimal point entered
-                    calculator.op1 = update / 10;
-                    calculator.op1Type = "float";
-                } else {
-                    // operand 1 is getting an integer
-                    calculator.op1 = update;
-                }
-            } else {
-                // operand 1 has already seen entries
-                if (calculator.op1Type === "dot") {
-                    // currently adding first digit after decimal
-                    calculator.op1 = parseFloat(`${calculator.op1}.${update}`);
-                    calculator.op1Type = "float";
-                } else if (calculator.op1Type === "float") {
-                    // adding 2nd or later digit after decimal
-                    calculator.op1 = parseFloat(`${calculator.op1}${update}`);
-                } else {
-                    // adding another digit to the integer
-                    calculator.op1 = parseInt(`${calculator.op1}${update}`);
-                }
+function updateDisplay(calculatorState) {
+    /**
+     * Need to parse the token list
+     * Should produce an underlying mathematical expression
+     * Perhaps stored in op1, op2, operator variables
+     * 
+     */
+    const display = document.querySelector(".display");
+    let displayContent = calculatorState.tokens;
+    const operatorIndex = helperFindOperator(displayContent);
+    if (operatorIndex !== -1) {
+        displayContent = [
+            ...displayContent.slice(0, operatorIndex),
+            " ",
+            displayContent[operatorIndex],
+            " ",
+            ...displayContent.slice(operatorIndex + 1),
+        ];
+    }
+    // round decimal of answer to two places
+    if (calculatorState.lhsIsResult) {
+        const lhsEnd = displayContent.findIndex(elem => elem === " ");
+        if (lhsEnd !== -1) {
+            // there is an operator or distinct LHS
+            const lhsDecimalIndex = displayContent.findIndex(elem => elem === ".");
+            if (lhsDecimalIndex !== -1) {
+                // decimal found on lhs
+                let lhsTokens = displayContent.slice(0, lhsEnd);
+                lhsTokens = helperRoundOperand(lhsTokens, roundDigits);
+                displayContent = [...lhsTokens, ...displayContent.slice(lhsEnd)];
             }
         } else {
-            // operator is present, 2nd operand being entered
-            if (calculator.op2 === null) {
-                // operand 2 hasn't received any digits yet
-                if (calculator.op2Type === "dot") {
-                    // operand 2 just had a decimal point entered
-                    calculator.op2 = update / 10;
-                    calculator.op2Type = "float";
-                } else {
-                    // operand 2 is getting an integer
-                    calculator.op2 = update;
-                }
-            } else {
-                // operand 2 has already seen entries
-                if (calculator.op2Type === "dot") {
-                    // currently adding first digit after decimal
-                    calculator.op2 = parseFloat(`${calculator.op2}.${update}`);
-                    calculator.op2Type = "float";
-                } else if (calculator.op2Type === "float") {
-                    // adding 2nd or later digit after decimal
-                    calculator.op2 = parseFloat(`${calculator.op2}${update}`);
-                } else {
-                    // adding another digit to the integer
-                    calculator.op2 = parseInt(`${calculator.op2}${update}`);
-                }
+            // only a "LHS" (result) is availably
+            const lhsDecimalIndex = displayContent.findIndex(elem => elem === ".");
+            if (lhsDecimalIndex !== -1) {
+                // decimal found on LHS
+                displayContent = helperRoundOperand(displayContent, roundDigits);
             }
-        }
-    } else if (["add", "subtract", "multiply", "divide"].includes(update)) {
-        // operator being entered
-        if (calculator.operator === null) {
-            // no operator has been entered yet, add it
-            calculator.operator = update;
-        } else {
-            // an operator has already been added
-            if (calculator.op2 === null) {
-                // still missing second operand
-                // so this update is changing existing operator
-                calculator.operator = update;
-            } else {
-                // a second operand has been entered
-                // TODO: need to evaluate expression so far -> op1
-                calculator.op1 = operate(calculator.operator, calculator.op1, calculator.op2);
-                calculator.lastOperation = {operator: calculator.operator, op2: calculator.op2};
-                calculator.operator = update;
-                calculator.op2 = null;
-                calculator.op2Type = "int";
-                // check if op1 is now int and adjust accordingly
-                // TODO
-            }
-        }
-    } else if (update === "decimal") {
-        // decimal selected
-        if (calculator.operator === null) {
-            // still entering 1st operand
-            if (calculator.op1Type === "int") {
-                // haven't entered decimal yet
-                calculator.op1Type = "dot";
-            }
-        } else {
-            // entering 2nd operand
-            if (calculator.op2Type === "int") {
-                // haven't entered decimal yet
-                calculator.op2Type = "dot";
-            }
-        }
-    } else if (update === "sign") {
-        // sign selected
-        // TODO
-    } else if (update === "backspace") {
-        // backspace selected
-        if (calculator.op2 !== null) {
-            // currently entering digits for op2
-            if (calculator.op2Type === "dot") {
-                // last key entered was decimal
-                calculator.op2Type = "int";
-            } else {
-                // last key entered was digit
-                if (calculator.op2Type === "int") {
-                    // op2 is int
-                    let op2Short = `${calculator.op2}`.slice(0, -1);
-                    if (op2Short === "") {
-                        calculator.op2 = null;
-                    } else {
-                        calculator.op2 = parseInt(op2Short);
-                    }
-                } else {
-                    // op2 is float
-                    let op2Short = `${calculator.op2}`.slice(0, -1);
-                    if (op2Short === "") {
-                        calculator.op2 = null;
-                    } else {
-                        calculator.op2 = parseFloat(op2Short);
-                    }
-                }
-            }
-        } else if (calculator.operator !== null) {
-            // last key entered was an operator
-            calculator.operator = null;
-        } else if (calculator.op1 !== null) {
-            // last key entered was for op1
-            if (calculator.op1Type === "dot") {
-                // last key entered was decimal
-                calculator.op1Type = "int";
-            } else {
-                // last key entered was digit
-                if (calculator.op1Type === "int") {
-                    // op1 is int
-                    let op1Short = `${calculator.op1}`.slice(0, -1);
-                    if (op1Short === "") {
-                        calculator.op1 = null;
-                    } else {
-                        calculator.op1 = parseInt(op1Short);
-                    }
-                } else {
-                    // op1 is float
-                    let op1Short = `${calculator.op1}`.slice(0, -1);
-                    if (op1Short === "") {
-                        calculator.op1 = null;
-                    } else {
-                        calculator.op1 = parseFloat(op1Short);
-                    }
-                }
-            } 
-        }
-    } else if (update === "clear") {
-        // clear selected
-        calculator.op1 = null;
-        calculator.op2 = null;
-        calculator.op1Type = "int";
-        calculator.op2Type = "int";
-        calculator.lastOperation = null;
-    } else if (update === "fn") {
-        // fn selected
-        alert("This function is not implemented.")
-    } else {
-        // equals selected
-        if (calculator.op2 === null) {
-            // 2nd operand does not exist
-            // perform last operation if it exists, otherwise do nothing
-            if (calculator.lastOperation) {
-                // last operation exists
-                // perform last operation again
-                calculator.op1 = operate(calculator.lastOperation.operator, calculator.op1, calculator.lastOperation.op2);
-                calculator.lastOperation.new = false;
-                // check if op1 is now integer and adjust accordingly
-                // TODO
-            }
-        } else {
-            // 2nd operand has been entered
-            // perform operation based on symbols currently entered
-            calculator.op1 = operate(calculator.operator, calculator.op1, calculator.op2);
-            calculator.lastOperation = {operator: calculator.operator, op2: calculator.op2};
-            calculator.operator = null;
-            calculator.op2 = null;
-            calculator.op2Type = "int";
-            // check if op1 is now integer and adjust accordingly
-            // TODO
         }
     }
+    displayContent = displayContent.map(token => (token === "neg") ? "-" : token);
+    displayContent = displayContent.map(token => (token === "/") ? "÷" : token);
+    displayContent = displayContent.map(token => (token === "*") ? "x" : token);
+    if (displayContent.length === 0) {
+        displayContent.push(0);
+    }
+    display.textContent = displayContent.join("");
 }
 
 function buttonClick(event) {
     const target = event.target.id;
     if (target) {
         // only if target is something truthy (meaningful)
-        const update = processClick(target);
-        updateTokens(update);
-        updateDisplay();
+        const newToken = processClick(target);
+        if (tokenAllowed(calculatorState, newToken)) {
+            calculatorState = processToken(calculatorState, newToken);
+            updateDisplay(calculatorState);
+        }
     }
 }
 
-function updateDisplay() {
-    const display = document.querySelector(".display");
-    // code to update the display
-    let text = "";
-    if (calculator.op1 !== null) {
-        if (calculator.lastOperation && calculator.op1Type === "float") {
-            if (('new' in calculator.lastOperation && calculator.lastOperation.new === false) || (!('new' in calculator.lastOperation))) {
-                text += calculator.op1.toFixed(2);
-            }
-        } else {
-            text += calculator.op1;
-        }
+function keyDown(event) {
+    let key = event.key;
+    const target = processKey(key);
+    if (target !== "invalid") {
+        let buttonClasses = document.querySelector(`#${target}`).classList;
+        buttonClasses.add("keydown");
     }
-    if (calculator.op1Type === "dot") text += ".";
-    if (calculator.operator) {
-        if (calculator.operator === "add") {
-            text += " +";
-        } else if (calculator.operator === "subtract") {
-            text += " -";
-        } else if (calculator.operator === "multiply") {
-            text += " x";
-        } else {
-            text += " ÷";
-        }
-    }
-    if (calculator.op2 !== null) text += " " + calculator.op2;
-    if (calculator.op2Type === "dot") text += ".";
-    display.textContent = text;
 }
 
-let calculator = {
-    op1: null,
-    op2: null,
-    op1Type: "int", // int, dot, float
-    op2Type: "int", // int, dot, float
-    lastOperation: {}, // e.g.: {operator: "multiply", op2: 6}
-    operator: null,
+function keyUp(event) {
+    let key = event.key;
+    const target = processKey(key);
+    if (target !== "invalid") {
+        let buttonClasses = document.querySelector(`#${target}`).classList;
+        buttonClasses.remove("keydown");
+        const newToken = processClick(target);
+        if (tokenAllowed(calculatorState, newToken)) {
+            calculatorState = processToken(calculatorState, newToken);
+            updateDisplay(calculatorState);
+        }
+    }
+}
+
+function setupBtns() {
+    const container = document.querySelector(".main");
+    container.addEventListener("click", buttonClick);
+    document.addEventListener("keydown", keyDown);
+    document.addEventListener("keyup", keyUp);
 }
 
 setupBtns();
+updateDisplay(calculatorState);
+
+// TODO: why is sign change allowed for empty second operand? DONE
+// TODO: fix editing a negative number DONE
+// TODO: fix backspace not working properly if deleting something that is rounded
+// and not currently visible DONE
+// TODO: fix backspace not working properly if deleting from a negative number DONE
+// TODO: fix display overflow
+// TODO: fix display vertical height
+// TODO: add last operation view
+// TODO: add percent functionality
+// TODO: fix adding decimal to a negative number DONE
+// TODO: remove console.log statements DONE
+// TODO: handle exceeding safe integer limit
+// TODO: handle division by 0
+// TODO: fix being able to input = despite last token being an operator if
+// lastOperationIsResult is true DONE
