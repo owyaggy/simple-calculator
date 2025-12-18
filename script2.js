@@ -69,6 +69,15 @@ function completeExpressionPresent(calculatorState) {
     return !isNaN(parseFloat(lhs)) && !isNaN(parseFloat(rhs));
 }
 
+/** 
+ * For sign change:
+ * Allowed if last token is not an operation
+ */
+function lastTokenNotOperator(calculatorState) {
+    const operators = ["+", "-" ,"*" ,"/"];
+    return !(operators.includes(calculatorState.tokens.at(-1)));
+}
+
 /**
  * Rules for digits:
  * - (none, always allowed)
@@ -80,9 +89,10 @@ function digitAllowed(calculatorState) {
 /**
  * Rules for sign change:
  * - tokensPresent = true
+ * - lastTokenNotOperator = true
  */
 function signChangeAllowed(calculatorState) {
-    return tokensPresent(calculatorState);
+    return tokensPresent(calculatorState) && lastTokenNotOperator(calculatorState);
 }
 
 /** 
@@ -90,7 +100,8 @@ function signChangeAllowed(calculatorState) {
  * - tokensPresent = true
  */
 function operatorAllowed(calculatorState) {
-    return tokensPresent(calculatorState);
+    //return tokensPresent(calculatorState);
+    return true;
 }
 
 /**
@@ -125,7 +136,7 @@ function decimalAllowed(calculatorState) {
 function equalsAllowed(calculatorState) {
     return (
         tokensPresent(calculatorState) && (
-            lastOperationPresent(calculatorState) || 
+            lastOperationPresent(calculatorState) ||
             completeExpressionPresent(calculatorState)
         )
     );
@@ -296,7 +307,13 @@ function processDigitToken(calculatorState, token) {
     } else {
         // current operand is not a result
         // append new digit
-        newCalculatorState.tokens.push(token);
+        // if ending token is ")", insert digit before
+        if (newCalculatorState.tokens.at(-1) === ")") {
+            newCalculatorState.tokens.pop();
+            newCalculatorState.tokens.push(token, ")");
+        } else {
+            newCalculatorState.tokens.push(token);
+        }
         return newCalculatorState;
     }
 }
@@ -311,11 +328,20 @@ function processDecimalToken(calculatorState, token) {
         newCalculatorState.tokens = [];
         newCalculatorState.lhsIsResult = false;
     }
-    const lastToken = newCalculatorState.tokens.at(-1);
+    let lastToken = newCalculatorState.tokens.at(-1);
+    let negative = false;
+    if (lastToken === ")") {
+        negative = true;
+        newCalculatorState.tokens.pop();
+        lastToken = newCalculatorState.tokens.at(-1);
+    }
     if (!Number.isInteger(lastToken)) {
         newCalculatorState.tokens.push(0);
     }
     newCalculatorState.tokens.push(".");
+    if (negative) {
+        newCalculatorState.tokens.push(")");
+    }
     return newCalculatorState;
 }
 
@@ -397,12 +423,12 @@ function processOperatorToken(calculatorState, token) {
     let newCalculatorState = structuredClone(calculatorState);
     const operatorIndex = helperFindOperator(calculatorState.tokens);
     if (operatorIndex < calculatorState.tokens.length - 1 && operatorIndex !== -1) {
-        // introducing a second operator! need to handle
-        // TODO: this is a temporary solution
-        // way to have some sort of "pop" effect as a result replaces an expression?
+        // introducing a second operator! handle using equals processor
         newCalculatorState = processEqualsToken(calculatorState, token);
-    } else if (operatorIndex === calculatorState.tokens.length - 1) {
+    } else if (operatorIndex === calculatorState.tokens.length - 1 && operatorIndex !== -1) {
         newCalculatorState.tokens.pop(); // remove last operator
+    } else if (calculatorState.tokens.length === 0) {
+        newCalculatorState.tokens.push(0);
     }
     let newOperator = null;
     switch (token) {
@@ -420,15 +446,49 @@ function processOperatorToken(calculatorState, token) {
             break;
     }
     newCalculatorState.tokens.push(newOperator);
+    newCalculatorState.lastOperation = null;
     return newCalculatorState;
 }
 
 /**
  * New backspace token
+ * Backspace rules for rounded numbers: deletes the first visible token
  */
 function processBackspaceToken(calculatorState, token) {
     let newCalculatorState = structuredClone(calculatorState);
+    let preserveNegative = newCalculatorState.tokens.at(-1) === ")";
+    if (preserveNegative) {
+        // if number is negative, remove the ending parenthesis (restore later)
+        newCalculatorState.tokens.pop();
+    }
+
+    let operatorIndex = helperFindOperator(newCalculatorState.tokens);
+    if (operatorIndex === -1) {
+        // deleting rounded number only possible if no operator present
+        if (newCalculatorState.tokens.includes(".")) {
+            // includes a decimal
+            let decimalIndex = newCalculatorState.tokens.findIndex(
+                token => token === "."
+            );
+            // change underlying representation to visual representation
+            // (specified rounding precision)
+            newCalculatorState.tokens = newCalculatorState.tokens.slice(
+                0, decimalIndex + (roundDigits + 1)
+            );
+        }
+    }
+
+    // remove last character by default
     newCalculatorState.tokens.pop();
+
+    if (preserveNegative) {
+        // if number is negative, restore the ending parenthesis
+        newCalculatorState.tokens.push(")");
+    }
+    // if ending in "(-)" (empty negative number), remove negative
+    if (newCalculatorState.tokens.slice(-3).join("") === "(neg)") {
+        newCalculatorState.tokens = newCalculatorState.tokens.slice(0, -3);
+    }
     return newCalculatorState;
 }
 
@@ -487,6 +547,8 @@ let calculatorState = {
     lhsIsResult: false,
 };
 
+let roundDigits = 4;
+
 function processClick(input) {
     switch (input) {
         case "one":
@@ -521,6 +583,8 @@ function processClick(input) {
         case "percent":
             return input;
         case "backspace-svg":
+        case "backspace-path-1":
+        case "backspace-path-2":
             return "backspace";
         default:
             return "error";
@@ -587,7 +651,6 @@ function updateDisplay(calculatorState) {
      */
     let displayContent = calculatorState.tokens;
     const operatorIndex = helperFindOperator(displayContent);
-    let roundDigits = 4; // how many digits to round to
     if (operatorIndex !== -1) {
         displayContent = [
             ...displayContent.slice(0, operatorIndex),
@@ -621,6 +684,9 @@ function updateDisplay(calculatorState) {
     displayContent = displayContent.map(token => (token === "neg") ? "-" : token);
     displayContent = displayContent.map(token => (token === "/") ? "÷" : token);
     displayContent = displayContent.map(token => (token === "*") ? "x" : token);
+    if (displayContent.length === 0) {
+        displayContent.push(0);
+    }
     const display = document.querySelector(".display");
     display.textContent = displayContent.join("");
 }
@@ -669,14 +735,22 @@ function setupBtns() {
 }
 
 setupBtns();
+updateDisplay(calculatorState);
 
-// TODO: why is sign change allowed for empty second operand?
+// TODO: why is sign change allowed for empty second operand? DONE
+// TODO: fix editing a negative number DONE
 // TODO: fix backspace not working properly if deleting something that is rounded
 // and not currently visible
-// TODO: fix backspace not working properly if deleting from a negative number
+// TODO: fix backspace not working properly if deleting from a negative number DONE
 // TODO: fix display overflow
 // TODO: fix display vertical height
 // TODO: add last operation view
 // TODO: add percent functionality
-// TODO: fix adding decimal to a negative number
+// TODO: fix adding decimal to a negative number DONE
 // TODO; display really long, but simplifiable, numbers in scientific notation
+// TODO: remove console.log statements
+// TODO: add some sort of indicator for when a number is rounded
+// TODO: handle exceeding safe integer limit
+// TODO: handle division by 0
+// TODO: fix being able to input = despite last token being an operator if
+// lastOperationIsResult is true
