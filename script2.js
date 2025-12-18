@@ -407,11 +407,22 @@ function processEqualsToken(calculatorState, token) {
             result = divide(lhs, rhs);
             break;
     }
-    newCalculatorState.tokens = helperConvertToTokens(result);
-    newCalculatorState.lastOperation = {
-        operator: operator,
-        rhsTokens: rhsTokens,
-    };
+    // need to verify lhs, rhs, and result are all safe
+    if (lhs > Number.MAX_SAFE_INTEGER || lhs < Number.MAX_SAFE_INTEGER ||
+        rhs < Number.MAX_SAFE_INTEGER || rhs < Number.MAX_SAFE_INTEGER 
+    ) {
+        newCalculatorState.tokens = "Invalid input";
+    } else if (result = "DIV#/0!") {
+        newCalculatorState.tokens = "Dividing by 0? What are you, crazy?";
+    } else if (result < Number.MAX_SAFE_INTEGER || result > Number.MAX_SAFE_INTEGER) {
+        newCalculatorState.tokens = "Result too large";
+    } else {
+        newCalculatorState.tokens = helperConvertToTokens(result);
+        newCalculatorState.lastOperation = {
+            operator: operator,
+            rhsTokens: rhsTokens,
+        };
+    }
     newCalculatorState.lhsIsResult = true;
     return newCalculatorState;
 }
@@ -649,7 +660,15 @@ function updateDisplay(calculatorState) {
      * Perhaps stored in op1, op2, operator variables
      * 
      */
+    const display = document.querySelector(".display");
     let displayContent = calculatorState.tokens;
+    if (displayContent === "Invalid input" ||
+        displayContent === "Dividing by 0? What are you, crazy?" ||
+        displayContent === "Result too large"
+    ) {
+        display.textContent = displayContent;
+        return;
+    }
     const operatorIndex = helperFindOperator(displayContent);
     if (operatorIndex !== -1) {
         displayContent = [
@@ -687,7 +706,6 @@ function updateDisplay(calculatorState) {
     if (displayContent.length === 0) {
         displayContent.push(0);
     }
-    const display = document.querySelector(".display");
     display.textContent = displayContent.join("");
 }
 
@@ -705,7 +723,6 @@ function buttonClick(event) {
 
 function keyDown(event) {
     let key = event.key;
-    console.log(key);
     const target = processKey(key);
     if (target !== "invalid") {
         let buttonClasses = document.querySelector(`#${target}`).classList;
@@ -740,17 +757,15 @@ updateDisplay(calculatorState);
 // TODO: why is sign change allowed for empty second operand? DONE
 // TODO: fix editing a negative number DONE
 // TODO: fix backspace not working properly if deleting something that is rounded
-// and not currently visible
+// and not currently visible DONE
 // TODO: fix backspace not working properly if deleting from a negative number DONE
 // TODO: fix display overflow
 // TODO: fix display vertical height
 // TODO: add last operation view
 // TODO: add percent functionality
 // TODO: fix adding decimal to a negative number DONE
-// TODO; display really long, but simplifiable, numbers in scientific notation
-// TODO: remove console.log statements
-// TODO: add some sort of indicator for when a number is rounded
+// TODO: remove console.log statements DONE
 // TODO: handle exceeding safe integer limit
 // TODO: handle division by 0
 // TODO: fix being able to input = despite last token being an operator if
-// lastOperationIsResult is true
+// lastOperationIsResult is true DONE
