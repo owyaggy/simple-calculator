@@ -92,12 +92,27 @@ function noError(calculatorState) {
     return !(errorMessages.includes(firstToken));
 }
 
+function lastTokenNotPercent(calculatorState) {
+    let lastToken = calculatorState.tokens.at(-1);
+    return lastToken !== "%";
+}
+
+function lastOperandNotPercent(calculatorState) {
+    if (!lastTokenNotOperator(calculatorState)) {
+        // if last token is an operator
+        let penultimateToken = calculatorState.tokens.at(-2);
+        return penultimateToken !== "%";
+    } else {
+        return true;
+    }
+}
+
 /**
  * Rules for digits:
- * - (none, always allowed)
+ * - lastTokenNotPercent = true
  */
 function digitAllowed(calculatorState) {
-    return true;
+    return lastTokenNotPercent(calculatorState);
 }
 
 /**
@@ -157,10 +172,13 @@ function equalsAllowed(calculatorState) {
 
 /**
  * Rules for percentage:
- * - TODO
+ * - noError = true
+ * Can use percent at end of operand or to replace operator,
+ * which is almost all of the time
+ * Exception: can't replace operator if previous operand ends in percent
  */
 function percentAllowed(calculatorState) {
-    // TODO
+    return noError(calculatorState) && lastOperandNotPercent(calculatorState);
 }
 
 /**
@@ -236,10 +254,20 @@ function helperOperandIsNegative(operandTokens) {
  * @returns {Array}
  */
 function helperToggleSign(operandTokens) {
+    let percentIndex = operandTokens.findIndex(token => token === "%");
     if (helperOperandIsNegative(operandTokens)) {
-        operandTokens = operandTokens.slice(2, -1); // remove negative indicators
+        if (percentIndex === -1) {
+            operandTokens = operandTokens.slice(2, -1); // remove negative indicators
+        } else {
+            operandTokens = operandTokens.slice(2, -2);
+            operandTokens.push("%");
+        }
     } else {
-        operandTokens = ['(', 'neg', ...operandTokens,')']; // add negative indicators
+        if (percentIndex === -1) {
+            operandTokens = ['(', 'neg', ...operandTokens,')']; // add negative indicators
+        } else {
+            operandTokens = ['(', 'neg', ...operandTokens.slice(0, -1), ')', '%'];
+        }
     }
     return operandTokens;
 }
@@ -320,12 +348,26 @@ function processDigitToken(calculatorState, token) {
     } else {
         // current operand is not a result
         // append new digit
-        // if ending token is ")", insert digit before
-        if (newCalculatorState.tokens.at(-1) === ")") {
+        // if ending token is ")" or "%", insert digit before them
+        let lastToken = newCalculatorState.tokens.at(-1);
+        let percent = false;
+        let negative = false;
+        if (lastToken === "%") {
+            percent = true;
             newCalculatorState.tokens.pop();
-            newCalculatorState.tokens.push(token, ")");
-        } else {
-            newCalculatorState.tokens.push(token);
+            lastToken = newCalculatorState.tokens.at(-1);
+        }
+        if (lastToken === ")") {
+            negative = true;
+            newCalculatorState.tokens.pop();
+            // don't update lastToken because not needed
+        }
+        newCalculatorState.tokens.push(token);
+        if (negative) {
+            newCalculatorState.tokens.push(")");
+        }
+        if (percent) {
+            newCalculatorState.tokens.push("%");
         }
         return newCalculatorState;
     }
@@ -342,6 +384,12 @@ function processDecimalToken(calculatorState, token) {
         newCalculatorState.lhsIsResult = false;
     }
     let lastToken = newCalculatorState.tokens.at(-1);
+    let percent = false;
+    if (lastToken === "%") {
+        percent = true;
+        newCalculatorState.tokens.pop();
+        lastToken = newCalculatorState.tokens.at(-1);
+    }
     let negative = false;
     if (lastToken === ")") {
         negative = true;
@@ -354,6 +402,9 @@ function processDecimalToken(calculatorState, token) {
     newCalculatorState.tokens.push(".");
     if (negative) {
         newCalculatorState.tokens.push(")");
+    }
+    if (percent) {
+        newCalculatorState.tokens.push("%");
     }
     return newCalculatorState;
 }
@@ -479,10 +530,19 @@ function processOperatorToken(calculatorState, token) {
  */
 function processBackspaceToken(calculatorState, token) {
     let newCalculatorState = structuredClone(calculatorState);
-    let preserveNegative = newCalculatorState.tokens.at(-1) === ")";
-    if (preserveNegative) {
-        // if number is negative, remove the ending parenthesis (restore later)
+    let lastToken = newCalculatorState.tokens.at(-1);
+    let percent = false;
+    let negative = newCalculatorState.tokens.at(-1) === ")";
+    if (lastToken === "%") {
+        percent = true;
         newCalculatorState.tokens.pop();
+        lastToken = newCalculatorState.tokens.at(-1);
+    }
+    if (lastToken === ")") {
+        // if number is negative, remove the ending parenthesis (restore later)
+        negative = true;
+        newCalculatorState.tokens.pop();
+        // last token not updated because no longer needed
     }
 
     let operatorIndex = helperFindOperator(newCalculatorState.tokens);
@@ -504,13 +564,17 @@ function processBackspaceToken(calculatorState, token) {
     // remove last character by default
     newCalculatorState.tokens.pop();
 
-    if (preserveNegative) {
+    if (negative) {
         // if number is negative, restore the ending parenthesis
         newCalculatorState.tokens.push(")");
     }
     // if ending in "(-)" (empty negative number), remove negative
     if (newCalculatorState.tokens.slice(-3).join("") === "(neg)") {
         newCalculatorState.tokens = newCalculatorState.tokens.slice(0, -3);
+    }
+    if (percent && newCalculatorState.tokens.length !== 0) {
+        // if number if percent, restore percent symbol
+        newCalculatorState.tokens.push("%");
     }
     return newCalculatorState;
 }
@@ -529,8 +593,31 @@ function processClearToken(calculatorState, token) {
 /**
  * New percentage token
  */
+/**
+ * Percent functionality:
+ * - Can only add at the end of an operand, or to replace an operator
+ *      - So it can go anywhere?
+ * - Nothing can come after it except for an operator
+ * - However, a digit with a percent *is* a complete expression
+ * - If last token is an operator, adding the % *replaces* the operator
+ */
 function processPercentToken(calculatorState, token) {
-    // TODO
+    let newCalculatorState = structuredClone(calculatorState);
+    let lastToken = newCalculatorState.tokens.at(-1);
+    const operators = ["+", "-" ,"*" ,"/"]; 
+    if (lastToken === "%") {
+        // if currently a percentage operand, convert
+        percent = true;
+        newCalculatorState.tokens.pop(); // remove %
+    } else if (operators.includes(lastToken)) {
+        // ends in operator, need to replace
+        newCalculatorState.tokens.pop();
+        newCalculatorState.tokens.push("%");
+    } else {
+        // not ending in percentage or operator --> add percentage
+        newCalculatorState.tokens.push("%");
+    }
+    return newCalculatorState;
 }
 
 /**
@@ -787,4 +874,14 @@ updateDisplay(calculatorState);
 // TODO: fix being able to input = despite last token being an operator if
 // lastOperationIsResult is true DONE
 // TODO: fix what is possible after an error message is shown
-// can't repeat lastOperation, must be able to replace with digit
+// can't repeat lastOperation, must be able to replace with digit DONE
+// TODO: make the whole thing smaller!
+
+// TODO: process calculations when % is involved (operand is divided by 100)
+// TODO: make sure percent is sufficient for equals
+
+
+
+/**
+ * Deal with operator
+ */
