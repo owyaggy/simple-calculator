@@ -526,6 +526,7 @@ function processEqualsToken(calculatorState, token) {
     } else {
         newCalculatorState.tokens = helperConvertToTokens(result);
         newCalculatorState.lastOperation = {
+            lhsTokens: lhsTokens,
             operator: operator,
             rhsTokens: rhsTokens,
         };
@@ -921,12 +922,9 @@ updateDisplay(calculatorState);
 // TODO: fix backspace not working properly if deleting something that is rounded
 // and not currently visible DONE
 // TODO: fix backspace not working properly if deleting from a negative number DONE
-
-// TODO: fix display overflow
-// TODO: fix display vertical height
-// TODO: add last operation view
-// TODO: add percent functionality
-
+// TODO: fix display vertical height DONE
+// TODO: add last operation view DONE
+// TODO: add percent functionality DONE
 // TODO: fix adding decimal to a negative number DONE
 // TODO: remove console.log statements DONE
 // TODO: handle exceeding safe integer limit DONE
@@ -935,12 +933,17 @@ updateDisplay(calculatorState);
 // lastOperationIsResult is true DONE
 // TODO: fix what is possible after an error message is shown
 // can't repeat lastOperation, must be able to replace with digit DONE
-
-// TODO: make the whole thing smaller!
-
-// TODO: process calculations when % is involved (operand is divided by 100)
+// TODO: make the whole thing smaller! DONE
+// TODO: process calculations when % is involved (operand is divided by 100) DONE
 // TODO: make sure percent is sufficient for equals DONE
 
+// TODO: fix display overflow
+// TODO: implement last operation display updating
+// TODO: fix accessibility/focus and keybindings
+// TODO: remove console.log statements
+// TODO: add logging for debugging
+// TODO: add copy/paste functionality
+// TODO: add animations
 
 
 /**

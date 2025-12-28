@@ -98,27 +98,29 @@ button:hover, .keydown {
     background-color: #ffa048;
 }
 
-.display {
-    height: 60px;
-    width: 404px;
+.display, .last-operation {
+    white-space: pre;
+    /* display: flex; */
     font-family: "Nunito", sans-serif;
+    width: 404px;
+    /* justify-content: flex-end; */
+    /* align-items: center; */
+    text-align: right;
+    overflow-x: auto;
+    overflow-y: visible;
+    padding: 0;
+    margin: 0;
+}
+
+.display {
+    /* height: 70px; */
     font-size: 72px;
     font-weight: bold;
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    text-align: right;
 }
 
 .last-operation {
-    height: 50px;
-    width: 404px;
-    font-family: "Nunito", sans-serif;
+    /* height: 50px; */
     font-size: 40px;
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    text-align: right;
     color: #757575;
     font-weight: 600;
 }
