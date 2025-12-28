@@ -370,7 +370,7 @@ function helperRoundOperand(operand, digits) {
 }
 
 function helperDisplayLastCalculation(calculatorState) {
-    let oldTokens = calculatorState.lastOperation.fullTokens;
+    let oldTokens = calculatorState.oldTokens;
     // if old tokens doesn't contain an operator or a percent, need to get the old
     // operator and rhs
     const operators = ["+", "-", "*", "/", "%"];
@@ -382,6 +382,7 @@ function helperDisplayLastCalculation(calculatorState) {
         );
     }
     // TODO: round operands as applicable
+    // TODO: add the character-by-character replacements
     return oldTokens.join("");
 }
 
@@ -495,7 +496,6 @@ function processEqualsToken(calculatorState, token) {
     let operator = null;
     let lhsTokens = null;
     let rhsTokens = null;
-    let percentOperation = false;
     if (operatorIndex === -1) {
         // no operator path only possible if last operation exists OR percent
         // if percent, divide by 100
@@ -544,10 +544,10 @@ function processEqualsToken(calculatorState, token) {
     } else {
         newCalculatorState.tokens = helperConvertToTokens(result);
         newCalculatorState.lastOperation = {
-            fullTokens: [...calculatorState.tokens], // shallow copy
             operator: operator,
             rhsTokens: rhsTokens,
         };
+        newCalculatorState.oldTokens = [...calculatorState.tokens]; // shallow copy
     }
     newCalculatorState.lhsIsResult = true;
     return newCalculatorState;
@@ -650,6 +650,7 @@ function processClearToken(calculatorState, token) {
     newCalculatorState.tokens = [];
     newCalculatorState.lastOperation = null;
     newCalculatorState.lhsIsResult = false;
+    newCalculatorState.oldTokens = null;
     return newCalculatorState;
 }
 
@@ -717,8 +718,8 @@ function processToken(calculatorState, token) {
 }
 
 let calculatorState = {
-
     tokens: [],
+    oldTokens: null,
     lastOperation: null,
     lhsIsResult: false,
 };
@@ -886,7 +887,7 @@ function updateDisplay(calculatorState) {
     } else {
         display.textContent = displayCalculation(calculatorState);
     }
-    if (lastOperationPresent(calculatorState)) {
+    if (calculatorState.oldTokens !== null) {
         lastOperationDisplay.textContent = helperDisplayLastCalculation(
             calculatorState
         );
@@ -963,8 +964,9 @@ updateDisplay(calculatorState);
 // TODO: process calculations when % is involved (operand is divided by 100) DONE
 // TODO: make sure percent is sufficient for equals DONE
 // TODO: fix display overflow DONE
+// TODO: implement last operation display updating DONE
+// TODO: prevent last calculation from disappearing too early DONE
 
-// TODO: implement last operation display updating
 // TODO: fix accessibility/focus and keybindings
 // TODO: remove console.log statements
 // TODO: add logging for debugging
