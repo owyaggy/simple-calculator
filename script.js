@@ -369,6 +369,22 @@ function helperRoundOperand(operand, digits) {
     return operand;
 }
 
+function helperDisplayLastCalculation(calculatorState) {
+    let oldTokens = calculatorState.lastOperation.fullTokens;
+    // if old tokens doesn't contain an operator or a percent, need to get the old
+    // operator and rhs
+    const operators = ["+", "-", "*", "/", "%"];
+    let operatorIndex = oldTokens.findIndex(token => operators.includes(token));
+    if (operatorIndex === -1) {
+        oldTokens.push(
+            calculatorState.lastOperation.operator,
+            ...calculatorState.lastOperation.rhsTokens
+        );
+    }
+    // TODO: round operands as applicable
+    return oldTokens.join("");
+}
+
 /**
  * New digit token
  */
@@ -479,6 +495,7 @@ function processEqualsToken(calculatorState, token) {
     let operator = null;
     let lhsTokens = null;
     let rhsTokens = null;
+    let percentOperation = false;
     if (operatorIndex === -1) {
         // no operator path only possible if last operation exists OR percent
         // if percent, divide by 100
@@ -488,6 +505,7 @@ function processEqualsToken(calculatorState, token) {
             lhsTokens = calculatorState.tokens.slice(0, -1);
             operator = "/";
             rhsTokens = ["1", "0", "0"];
+            percentOperation = true;
         } else {
             lhsTokens = calculatorState.tokens;
             operator = calculatorState.lastOperation.operator;
@@ -526,7 +544,7 @@ function processEqualsToken(calculatorState, token) {
     } else {
         newCalculatorState.tokens = helperConvertToTokens(result);
         newCalculatorState.lastOperation = {
-            lhsTokens: lhsTokens,
+            fullTokens: [...calculatorState.tokens], // shallow copy
             operator: operator,
             rhsTokens: rhsTokens,
         };
@@ -858,6 +876,7 @@ function displayCalculation(calculatorState) {
 
 function updateDisplay(calculatorState) {
     const display = document.querySelector(".display");
+    const lastOperationDisplay = document.querySelector(".last-operation");
     let firstToken = calculatorState.tokens[0];
     if (firstToken === "Input exceeds limit" ||
         firstToken === "Result exceeds limit" ||
@@ -866,6 +885,13 @@ function updateDisplay(calculatorState) {
         display.textContent = firstToken;
     } else {
         display.textContent = displayCalculation(calculatorState);
+    }
+    if (lastOperationPresent(calculatorState)) {
+        lastOperationDisplay.textContent = helperDisplayLastCalculation(
+            calculatorState
+        );
+    } else {
+        lastOperationDisplay.textContent = "";
     }
 }
 
@@ -936,14 +962,16 @@ updateDisplay(calculatorState);
 // TODO: make the whole thing smaller! DONE
 // TODO: process calculations when % is involved (operand is divided by 100) DONE
 // TODO: make sure percent is sufficient for equals DONE
+// TODO: fix display overflow DONE
 
-// TODO: fix display overflow
 // TODO: implement last operation display updating
 // TODO: fix accessibility/focus and keybindings
 // TODO: remove console.log statements
 // TODO: add logging for debugging
 // TODO: add copy/paste functionality
 // TODO: add animations
+// TODO: pin scrollbar to right unless user invokes scroll
+// TODO: add functionality to change decimal precision (perhaps option + precision?)
 
 
 /**
