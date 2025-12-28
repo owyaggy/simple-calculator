@@ -97,6 +97,10 @@ function lastTokenNotPercent(calculatorState) {
     return lastToken !== "%";
 }
 
+function lastTokenIsPercent(calculatorState) {
+    return !(lastTokenNotPercent(calculatorState));
+}
+
 function lastOperandNotPercent(calculatorState) {
     if (!lastTokenNotOperator(calculatorState)) {
         // if last token is an operator
@@ -107,21 +111,31 @@ function lastOperandNotPercent(calculatorState) {
     }
 }
 
+function notZero(calculatorState) {
+    if (calculatorState.tokens.length === 1) {
+        return calculatorState.tokens[0] !== "0";
+    } else {
+        return true;
+    }
+}
+
 /**
  * Rules for digits:
  * - lastTokenNotPercent = true
  */
 function digitAllowed(calculatorState) {
-    return lastTokenNotPercent(calculatorState);
+    return true;
+    //return lastTokenNotPercent(calculatorState);
 }
 
 /**
  * Rules for sign change:
  * - tokensPresent = true
+ * - notZero = true
  * - lastTokenNotOperator = true
  */
 function signChangeAllowed(calculatorState) {
-    return tokensPresent(calculatorState) && lastTokenNotOperator(calculatorState);
+    return tokensPresent(calculatorState) && notZero(calculatorState) && lastTokenNotOperator(calculatorState);
 }
 
 /** 
@@ -165,7 +179,8 @@ function equalsAllowed(calculatorState) {
     return (
         tokensPresent(calculatorState) && (
             lastOperationPresent(calculatorState) ||
-            completeExpressionPresent(calculatorState)
+            completeExpressionPresent(calculatorState) ||
+            lastTokenIsPercent(calculatorState)
         )
     );
 }
@@ -176,9 +191,10 @@ function equalsAllowed(calculatorState) {
  * Can use percent at end of operand or to replace operator,
  * which is almost all of the time
  * Exception: can't replace operator if previous operand ends in percent
+ * CHANGE: replacing operator removed, so requires lastTokenNotOperator
  */
 function percentAllowed(calculatorState) {
-    return noError(calculatorState) && lastOperandNotPercent(calculatorState);
+    return noError(calculatorState) && lastOperandNotPercent(calculatorState) && lastTokenNotOperator(calculatorState);
 }
 
 /**
@@ -257,18 +273,27 @@ function helperToggleSign(operandTokens) {
     let percentIndex = operandTokens.findIndex(token => token === "%");
     if (helperOperandIsNegative(operandTokens)) {
         if (percentIndex === -1) {
+            console.log("operand tokens before slice:");
+            console.log(operandTokens);
             operandTokens = operandTokens.slice(2, -1); // remove negative indicators
+            console.log("operand tokens after slice:");
+            console.log(operandTokens);
         } else {
             operandTokens = operandTokens.slice(2, -2);
             operandTokens.push("%");
         }
     } else {
         if (percentIndex === -1) {
+            console.log("operand tokens before combining:");
+            console.log(operandTokens);
             operandTokens = ['(', 'neg', ...operandTokens,')']; // add negative indicators
+            console.log("operand tokens after combining:");
+            console.log(operandTokens);
         } else {
             operandTokens = ['(', 'neg', ...operandTokens.slice(0, -1), ')', '%'];
         }
     }
+    console.log(operandTokens);
     return operandTokens;
 }
 
@@ -278,15 +303,26 @@ function helperToggleSign(operandTokens) {
  * @return {Number}
  */
 function helperParseOperandTokens(operandTokens) {
+    let result = null;
+    let percent = false;
+    let lastToken = operandTokens.at(-1);
+    if (lastToken === "%") {
+        operandTokens.pop();
+        percent = true;
+    }
     if (helperOperandIsNegative(operandTokens)) {
         // refactor negative numbers to work with parseFloat
         operandTokens = "-" + operandTokens.slice(2, -1).join("");
-        return parseFloat(operandTokens);
+        result = parseFloat(operandTokens);
     } else {
         // positive numbers just need to be joined
         operandTokens = operandTokens.join("");
-        return parseFloat(operandTokens);
+        result = parseFloat(operandTokens);
     }
+    if (percent) {
+        result /= 100;
+    }
+    return result;
 }
 
 /**
@@ -444,11 +480,19 @@ function processEqualsToken(calculatorState, token) {
     let lhsTokens = null;
     let rhsTokens = null;
     if (operatorIndex === -1) {
-        // no operator path only possible if last operation exists
-        // apply last operation
-        lhsTokens = calculatorState.tokens;
-        operator = calculatorState.lastOperation.operator;
-        rhsTokens = calculatorState.lastOperation.rhsTokens;
+        // no operator path only possible if last operation exists OR percent
+        // if percent, divide by 100
+        // if no percent, apply last operation
+        let lastToken = calculatorState.tokens.at(-1);
+        if (lastToken === "%") {
+            lhsTokens = calculatorState.tokens.slice(0, -1);
+            operator = "/";
+            rhsTokens = ["1", "0", "0"];
+        } else {
+            lhsTokens = calculatorState.tokens;
+            operator = calculatorState.lastOperation.operator;
+            rhsTokens = calculatorState.lastOperation.rhsTokens;
+        }
     } else {
         lhsTokens = newCalculatorState.tokens.slice(0, operatorIndex);
         operator = calculatorState.tokens[operatorIndex];
@@ -603,6 +647,9 @@ function processClearToken(calculatorState, token) {
  */
 function processPercentToken(calculatorState, token) {
     let newCalculatorState = structuredClone(calculatorState);
+    if (newCalculatorState.tokens.length === 0) {
+        newCalculatorState.tokens.push("0");
+    }
     let lastToken = newCalculatorState.tokens.at(-1);
     const operators = ["+", "-" ,"*" ,"/"]; 
     if (lastToken === "%") {
@@ -745,7 +792,7 @@ function processKey(input) {
             return "equals";
         case "%":
             return "percent";
-        case " ":
+        case "s":
             return "sign";
         default:
             return "invalid";
@@ -779,8 +826,16 @@ function displayCalculation(calculatorState) {
             if (lhsDecimalIndex !== -1) {
                 // decimal found on lhs
                 let lhsTokens = displayContent.slice(0, lhsEnd);
+                let percent = false;
+                if (lhsTokens.at(-1) === "%") {
+                    lhsTokens.pop();
+                    percent = true;
+                }
                 lhsTokens = helperRoundOperand(lhsTokens, roundDigits);
                 displayContent = [...lhsTokens, ...displayContent.slice(lhsEnd)];
+                if (percent) {
+                    displayContent.push("%");
+                }
             }
         } else {
             // only a "LHS" (result) is availably
@@ -815,6 +870,7 @@ function updateDisplay(calculatorState) {
 
 function buttonClick(event) {
     const target = event.target.id;
+    console.log(`processing BUTTON click on ${target}`);
     if (target) {
         // only if target is something truthy (meaningful)
         const newToken = processClick(target);
@@ -828,6 +884,7 @@ function buttonClick(event) {
 function keyDown(event) {
     let key = event.key;
     const target = processKey(key);
+    console.log(`processing KEY click on ${target}`);
     if (target !== "invalid") {
         let buttonClasses = document.querySelector(`#${target}`).classList;
         buttonClasses.add("keydown");
@@ -838,6 +895,7 @@ function keyUp(event) {
     let key = event.key;
     const target = processKey(key);
     if (target !== "invalid") {
+        event.stopImmediatePropagation();
         let buttonClasses = document.querySelector(`#${target}`).classList;
         buttonClasses.remove("keydown");
         const newToken = processClick(target);
@@ -863,10 +921,12 @@ updateDisplay(calculatorState);
 // TODO: fix backspace not working properly if deleting something that is rounded
 // and not currently visible DONE
 // TODO: fix backspace not working properly if deleting from a negative number DONE
+
 // TODO: fix display overflow
 // TODO: fix display vertical height
 // TODO: add last operation view
 // TODO: add percent functionality
+
 // TODO: fix adding decimal to a negative number DONE
 // TODO: remove console.log statements DONE
 // TODO: handle exceeding safe integer limit DONE
@@ -875,10 +935,11 @@ updateDisplay(calculatorState);
 // lastOperationIsResult is true DONE
 // TODO: fix what is possible after an error message is shown
 // can't repeat lastOperation, must be able to replace with digit DONE
+
 // TODO: make the whole thing smaller!
 
 // TODO: process calculations when % is involved (operand is divided by 100)
-// TODO: make sure percent is sufficient for equals
+// TODO: make sure percent is sufficient for equals DONE
 
 
 
