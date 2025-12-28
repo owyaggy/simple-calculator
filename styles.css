@@ -26,18 +26,20 @@ body {
     padding: 40px;
     max-width: 600px;
     flex: 1;
+    justify-content: center;
 }
 
 .row {
     display: flex;
     gap: 10px;
     border: none;
+    justify-content: center;
 }
 
 button {
     border-radius: 100%;
     aspect-ratio: 1 / 1;
-    flex: 1;
+    flex: 0 0 90px;
     font-family: "Nunito", sans-serif;
     font-size: 48px;
     border: none;
@@ -67,7 +69,6 @@ button:hover, .keydown {
 .digit,
 .bottomrow,
 .display {
-    flex: 1;
     color: white;
 }
 
@@ -98,13 +99,26 @@ button:hover, .keydown {
 }
 
 .display {
-    flex: 1;
+    height: 60px;
+    width: 404px;
     font-family: "Nunito", sans-serif;
     font-size: 72px;
     font-weight: bold;
     display: flex;
     justify-content: flex-end;
-    align-items: flex-end;
-    min-height: 10vh;
+    align-items: center;
     text-align: right;
+}
+
+.last-operation {
+    height: 50px;
+    width: 404px;
+    font-family: "Nunito", sans-serif;
+    font-size: 40px;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    text-align: right;
+    color: #757575;
+    font-weight: 600;
 }
