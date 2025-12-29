@@ -1060,6 +1060,10 @@ updateDisplay(calculatorState);
 // process
 // TODO: fix the handling of numbers that are way too precise
 // TODO: have font size change as numbers are increased
+// TODO: fix possibility for (-0)
+// TODO: deleting a rounded number can be unintuitive, e.g. if result is (-531.023),
+// deleting 2 tokens results in (-531.0), but that's represented as (-531).
+// Deleting works on underlying representation, so it doesn't make sense visually
 
 /**
  * Deal with operator
