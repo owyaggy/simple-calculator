@@ -1045,6 +1045,7 @@ updateDisplay(calculatorState);
 // TODO: prevent last calculation from disappearing too early DONE
 // TODO: can't just add percent to result DONE
 // TODO: fix decimal rounding on rhs of last operation DONE
+// TODO: fix how last oepration of percent on a result is shown as / 100 DONE
 
 // TODO: fix accessibility/focus and keybindings
 // TODO: remove console.log statements
@@ -1058,8 +1059,6 @@ updateDisplay(calculatorState);
 // keyup event will be the release of "=", meaning the release of "+" will never
 // process
 // TODO: fix the handling of numbers that are way too precise
-// TODO: fix how last oepration of percent on a result is shown as / 100
-
 
 /**
  * Deal with operator
