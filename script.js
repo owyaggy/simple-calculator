@@ -1059,6 +1059,7 @@ updateDisplay(calculatorState);
 // keyup event will be the release of "=", meaning the release of "+" will never
 // process
 // TODO: fix the handling of numbers that are way too precise
+// TODO: have font size change as numbers are increased
 
 /**
  * Deal with operator
