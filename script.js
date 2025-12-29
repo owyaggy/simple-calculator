@@ -370,20 +370,71 @@ function helperRoundOperand(operand, digits) {
 }
 
 function helperDisplayLastCalculation(calculatorState) {
-    let oldTokens = calculatorState.oldTokens;
+    let displayContent = [...calculatorState.oldTokens];
     // if old tokens doesn't contain an operator or a percent, need to get the old
     // operator and rhs
     const operators = ["+", "-", "*", "/", "%"];
-    let operatorIndex = oldTokens.findIndex(token => operators.includes(token));
+    let operatorIndex = displayContent.findIndex(token => operators.includes(token));
     if (operatorIndex === -1) {
-        oldTokens.push(
-            calculatorState.lastOperation.operator,
-            ...calculatorState.lastOperation.rhsTokens
-        );
+        displayContent.push(calculatorState.lastOperation.operator);
+        if (calculatorState.lastOperation.operator !== "%") {
+            displayContent.push(...calculatorState.lastOperation.rhsTokens);
+        }
     }
-    // TODO: round operands as applicable
-    // TODO: add the character-by-character replacements
-    return oldTokens.join("");
+    operatorIndex = helperFindOperator(displayContent);
+    if (operatorIndex !== -1) {
+        displayContent = [
+            ...displayContent.slice(0, operatorIndex),
+            " ",
+            displayContent[operatorIndex],
+            " ",
+            ...displayContent.slice(operatorIndex + 1),
+        ];
+    }
+    operatorIndex = helperFindOperator(displayContent);
+    // round decimal of answer to two places
+    const lhsEnd = displayContent.findIndex(elem => elem === " ");
+    if (lhsEnd !== -1) {
+        // there is an operator or distinct LHS
+        const lhsDecimalIndex = displayContent.findIndex(elem => elem === ".");
+        if (lhsDecimalIndex !== -1) {
+            // decimal found on lhs
+            let lhsTokens = displayContent.slice(0, lhsEnd);
+            let percent = false;
+            if (lhsTokens.at(-1) === "%") {
+                lhsTokens.pop();
+                percent = true;
+            }
+            lhsTokens = helperRoundOperand(lhsTokens, roundDigits);
+            displayContent = [...lhsTokens, ...displayContent.slice(lhsEnd)];
+            if (percent) {
+                displayContent.push("%");
+            }
+        }
+        let rhsDecimalIndex = displayContent.findLastIndex(elem => elem === "."); // TODO: figure out rhs rounding
+        if (rhsDecimalIndex === lhsDecimalIndex) {
+            rhsDecimalIndex = -1;
+        }
+        const rhsStart = displayContent.findLastIndex(elem => elem === " ");
+        if (rhsDecimalIndex !== -1) {
+            // decimal found on rhs
+            let rhsTokens = displayContent.slice(rhsStart + 1);
+            let percent = false;
+            if (rhsTokens.at(-1) === "%") {
+                rhsTokens.pop();
+                percent = true;
+            }
+            rhsTokens = helperRoundOperand(rhsTokens, roundDigits);
+            displayContent = [...displayContent.slice(0, rhsStart + 1), ...rhsTokens];
+            if (percent) {
+                displayContent.push("%");
+            }
+        }
+    }
+    displayContent = displayContent.map(token => (token === "neg") ? "-" : token);
+    displayContent = displayContent.map(token => (token === "/") ? "÷" : token);
+    displayContent = displayContent.map(token => (token === "*") ? "x" : token);
+    return displayContent.join("");
 }
 
 /**
@@ -502,14 +553,21 @@ function processEqualsToken(calculatorState, token) {
         // if no percent, apply last operation
         let lastToken = calculatorState.tokens.at(-1);
         if (lastToken === "%") {
-            lhsTokens = calculatorState.tokens.slice(0, -1);
-            operator = "/";
-            rhsTokens = ["1", "0", "0"];
-            percentOperation = true;
+            lhsTokens = calculatorState.tokens;
+            operator = "%";
+            // operator = "/";
+            // rhsTokens = ["1", "0", "0"];
+            // percentOperation = true;
         } else {
             lhsTokens = calculatorState.tokens;
             operator = calculatorState.lastOperation.operator;
             rhsTokens = calculatorState.lastOperation.rhsTokens;
+            // if repeating last operation, but last operation was a simple percent,
+            // percent is now in operator instead of lhs, so needs to be passed to
+            // lhs tokens, to be processed in helperParseOperandTokens
+            if (operator === "%") {
+                lhsTokens.push("%");
+            }
         }
     } else {
         lhsTokens = newCalculatorState.tokens.slice(0, operatorIndex);
@@ -517,7 +575,10 @@ function processEqualsToken(calculatorState, token) {
         rhsTokens = calculatorState.tokens.slice(operatorIndex + 1);
     }
     let lhs = helperParseOperandTokens(lhsTokens);
-    let rhs = helperParseOperandTokens(rhsTokens);
+    let rhs = null;
+    if (operator !== "%") {
+        rhs = helperParseOperandTokens(rhsTokens);
+    }
     let result = null;
     switch (operator) {
         case "+":
@@ -532,14 +593,22 @@ function processEqualsToken(calculatorState, token) {
         case "/":
             result = divide(lhs, rhs);
             break;
+        case "%":
+            result = lhs;
+            break;
     }
+    // TODO: come back to the sections about "minAllowed", don't seem to have desired effect
     if (result === "DIV#/0!") {
         newCalculatorState.tokens = ["div by 0? bruh."];
     } else if (lhs > Number.MAX_SAFE_INTEGER || lhs < Number.MIN_SAFE_INTEGER ||
-        rhs > Number.MAX_SAFE_INTEGER || rhs < Number.MIN_SAFE_INTEGER
+        rhs > Number.MAX_SAFE_INTEGER || rhs < Number.MIN_SAFE_INTEGER ||
+        (lhs > 0 && lhs < minAllowed) || (lhs < 0 && lhs > 1 - minAllowed) ||
+        (rhs > 0 && rhs < minAllowed) || (rhs < 0 && rhs > 1 - minAllowed)
     ) {
         newCalculatorState.tokens = ["Input exceeds limit"];
-    } else if (result > Number.MAX_SAFE_INTEGER || result < Number.MIN_SAFE_INTEGER) {
+    } else if (result > Number.MAX_SAFE_INTEGER || result < Number.MIN_SAFE_INTEGER ||
+        (result > 0 && result < minAllowed) || (result < 0 && result > 1 - minAllowed)
+    ) {
         newCalculatorState.tokens = ["Result exceeds limit"];
     } else {
         newCalculatorState.tokens = helperConvertToTokens(result);
@@ -725,6 +794,7 @@ let calculatorState = {
 };
 
 let roundDigits = 4;
+let minAllowed = 0.0000000001;
 
 function processClick(input) {
     switch (input) {
@@ -826,7 +896,8 @@ function displayCalculation(calculatorState) {
      * Perhaps stored in op1, op2, operator variables
      * 
      */
-    let displayContent = calculatorState.tokens;
+    let displayContent = [...calculatorState.tokens]; // shallow copy
+    console.log(displayContent);
     const operatorIndex = helperFindOperator(displayContent);
     if (operatorIndex !== -1) {
         displayContent = [
@@ -858,11 +929,19 @@ function displayCalculation(calculatorState) {
                 }
             }
         } else {
-            // only a "LHS" (result) is availably
+            // only a "LHS" (result) is available
             const lhsDecimalIndex = displayContent.findIndex(elem => elem === ".");
             if (lhsDecimalIndex !== -1) {
                 // decimal found on LHS
+                let percent = false;
+                if (displayContent.at(-1) === "%") {
+                    displayContent.pop();
+                    percent = true;
+                }
                 displayContent = helperRoundOperand(displayContent, roundDigits);
+                if (percent) {
+                    displayContent.push("%");
+                }
             }
         }
     }
@@ -898,7 +977,6 @@ function updateDisplay(calculatorState) {
 
 function buttonClick(event) {
     const target = event.target.id;
-    console.log(`processing BUTTON click on ${target}`);
     if (target) {
         // only if target is something truthy (meaningful)
         const newToken = processClick(target);
@@ -912,7 +990,6 @@ function buttonClick(event) {
 function keyDown(event) {
     let key = event.key;
     const target = processKey(key);
-    console.log(`processing KEY click on ${target}`);
     if (target !== "invalid") {
         let buttonClasses = document.querySelector(`#${target}`).classList;
         buttonClasses.add("keydown");
@@ -966,6 +1043,8 @@ updateDisplay(calculatorState);
 // TODO: fix display overflow DONE
 // TODO: implement last operation display updating DONE
 // TODO: prevent last calculation from disappearing too early DONE
+// TODO: can't just add percent to result DONE
+// TODO: fix decimal rounding on rhs of last operation DONE
 
 // TODO: fix accessibility/focus and keybindings
 // TODO: remove console.log statements
@@ -974,6 +1053,12 @@ updateDisplay(calculatorState);
 // TODO: add animations
 // TODO: pin scrollbar to right unless user invokes scroll
 // TODO: add functionality to change decimal precision (perhaps option + precision?)
+// TODO: add check when any key is released to ensure keydown class is removed
+// ex: if SHIFT+= is held, then shift is released, then = is released, the only relevant
+// keyup event will be the release of "=", meaning the release of "+" will never
+// process
+// TODO: fix the handling of numbers that are way too precise
+// TODO: fix how last oepration of percent on a result is shown as / 100
 
 
 /**
